@@ -1,6 +1,11 @@
 """
 Crypto Trading Bot - Main Controller
 Master controller that orchestrates all modules for automated crypto trading on Bybit
+
+Features:
+- Automatic SPOT/FUTURES mode switching based on balance
+- Balance < 500 USDT → SPOT mode (safer, no leverage)
+- Balance >= 500 USDT → FUTURES mode (with leverage, all strategies)
 """
 
 import logging
@@ -10,6 +15,7 @@ from enum import Enum
 
 from config.settings import *
 from modules.analyzer import MarketAnalyzer, MarketPhase
+from modules.risk_manager import RiskManager, TradingMode
 from strategies.long_strategies import LongStrategies
 from strategies.short_strategies import ShortStrategies
 from strategies.range_strategies import RangeStrategies
@@ -32,22 +38,55 @@ class TradingState(Enum):
 
 
 class CryptoTradingBot:
-    def __init__(self):
+    def __init__(self, initial_balance: float = 100.0):
+        """
+        Initialize the trading bot
+        
+        Args:
+            initial_balance: Starting balance in USDT (default: 100 for testing)
+        """
         self.config = Config()
         self.state = TradingState.STOPPED
         self.client = self._initialize_bybit_client()
+        
+        # Initialize Risk Manager with balance-based mode switching
+        self.risk_manager = RiskManager()
+        self.risk_manager.update_balance(initial_balance)
+        
         self.analyzer = MarketAnalyzer(self.client, self.config)
         self.long_trader = LongStrategies(self.client, self.config)
         self.short_trader = ShortStrategies(self.client, self.config)
         self.range_trader = RangeStrategies(self.client, self.config)
+        
         self.current_phase = None
         self.selected_coins = []
-        self.open_positions = []
         self.trades_history = []
-        self.loss_streak = 0
         self.last_analysis_time = 0
-        self.stats = {"total_trades": 0, "winning_trades": 0, "losing_trades": 0, "total_profit": 0, "total_loss": 0}
-        logger.info("Crypto Trading Bot initialized")
+        self.last_balance_update = 0
+        
+        logger.info(f"Crypto Trading Bot initialized with {initial_balance:.2f} USDT")
+        logger.info(f"Trading Mode: {self.risk_manager.trading_mode.value}")
+        self._log_mode_parameters()
+
+    def _log_mode_parameters(self):
+        """Log current mode parameters for transparency"""
+        params = self.risk_manager.get_mode_params()
+        logger.info(f"=== {params['mode']} MODE PARAMETERS ===")
+        logger.info(f"Position Size: {params['position_size_percent']}% of balance")
+        logger.info(f"Leverage: {params['leverage']}x")
+        logger.info(f"Stop Loss: {params['stop_loss_percent']}%")
+        if params['mode'] == 'FUTURES':
+            logger.info(f"Take Profit 1: {params['tp1_value']} USDT")
+            logger.info(f"Take Profit 2: {params['tp2_value']} USDT")
+            logger.info(f"Trailing Stop Activation: {params['trailing_activation']} USDT")
+        else:
+            logger.info(f"Take Profit 1: {params['tp1_percent']}%")
+            logger.info(f"Take Profit 2: {params['tp2_percent']}%")
+            logger.info(f"Trailing Stop Activation: {params['trailing_activation_percent']}%")
+        logger.info(f"Max Concurrent Trades: {params['max_concurrent_trades']}")
+        logger.info(f"Max Loss Streak: {params['max_loss_streak']}")
+        logger.info(f"Short Selling Allowed: {params['allow_short']}")
+        logger.info("=" * 40)
 
     def _initialize_bybit_client(self):
         class MockClient:
@@ -59,6 +98,8 @@ class CryptoTradingBot:
                 return {"symbol": symbol, "bid_price": 50000, "ask_price": 50001, "volume_24h": 100000000, "last_price": 50000}
             def get_orderbook(self, symbol, depth=5):
                 return {"bids": [[50000-i*0.5, 10] for i in range(depth)], "asks": [[50001+i*0.5, 10] for i in range(depth)]}
+            def get_balance(self):
+                return {"balance": 100.0}  # Mock balance
         return MockClient()
 
     def start(self):
@@ -81,13 +122,27 @@ class CryptoTradingBot:
         while self.state == TradingState.ACTIVE:
             try:
                 current_time = time.time()
+                
+                # Update balance periodically (every minute)
+                if current_time - self.last_balance_update >= 60:
+                    self._update_balance()
+                    self.last_balance_update = current_time
+                
+                # Market analysis every 15 minutes
                 if current_time - self.last_analysis_time >= ANALYSIS_INTERVAL_MINUTES * 60:
                     self._perform_market_analysis()
                     self.last_analysis_time = current_time
+                
+                # Check trading opportunities
                 if self.state == TradingState.ACTIVE and self.current_phase:
                     self._check_trading_opportunities()
+                
+                # Manage open positions using risk manager
                 self._manage_open_positions()
+                
+                # Update monitoring
                 self._update_monitoring()
+                
                 time.sleep(PRICE_UPDATE_INTERVAL_SECONDS)
             except KeyboardInterrupt:
                 self.stop()
@@ -95,6 +150,26 @@ class CryptoTradingBot:
             except Exception as e:
                 logger.error(f"Error in main loop: {e}")
                 time.sleep(5)
+
+    def _update_balance(self):
+        """Update balance from exchange and check for mode switch"""
+        try:
+            # In real implementation, fetch from Bybit API
+            # balance_response = self.client.get_wallet_balance()
+            # current_balance = float(balance_response['balance'])
+            
+            # For now, use mock balance with simulation
+            current_balance = self.risk_manager.current_balance  # Would be fetched from API
+            
+            self.risk_manager.update_balance(current_balance)
+            
+            # Log if mode changed
+            if self.risk_manager.trading_mode == TradingMode.FUTURES and current_balance >= BALANCE_THRESHOLD_USDT:
+                logger.info(f"Balance: {current_balance:.2f} USDT - Trading FUTURES with leverage")
+            elif self.risk_manager.trading_mode == TradingMode.SPOT and current_balance < BALANCE_THRESHOLD_USDT:
+                logger.info(f"Balance: {current_balance:.2f} USDT - Trading SPOT (no leverage)")
+        except Exception as e:
+            logger.error(f"Error updating balance: {e}")
 
     def _perform_market_analysis(self):
         logger.info("Performing market analysis...")
@@ -111,19 +186,52 @@ class CryptoTradingBot:
         self.analyzer.update_adaptive_parameters(self.trades_history)
 
     def _check_trading_opportunities(self):
-        if not self.selected_coins or len(self.open_positions) >= MAX_CONCURRENT_TRADES:
+        """Check for trading opportunities based on current phase"""
+        params = self.risk_manager.get_mode_params()
+        
+        if not self.selected_coins:
             return
-        for coin in self.selected_coins[:MAX_CONCURRENT_COINS]:
-            ohlcv = self.client.get_ohlcv(coin["symbol"], "5m", limit=100)
+        
+        # Respect concurrent trade limits from risk manager
+        if len(self.risk_manager.open_trades) >= params['max_concurrent_trades']:
+            return
+        
+        for coin in self.selected_coins[:params['max_concurrent_coins']]:
+            symbol = coin["symbol"] if isinstance(coin, dict) else coin
+            
+            # Skip if already trading this symbol
+            if symbol in self.risk_manager.open_trades:
+                continue
+            
+            # Get OHLCV data
+            ohlcv = self.client.get_ohlcv(symbol, "5m", limit=100)
+            ticker = self.client.get_ticker(symbol)
+            current_price = float(ticker.get("last_price", 50000))
+            
             signal = None
+            
+            # Select strategy based on market phase
             if self.current_phase == MarketPhase.LONG:
-                signal = self._check_long_strategies(coin["symbol"], ohlcv)
+                signal = self._check_long_strategies(symbol, ohlcv)
             elif self.current_phase == MarketPhase.SHORT:
-                signal = self._check_short_strategies(coin["symbol"], ohlcv)
+                # Only allow short if mode permits
+                if params['allow_short']:
+                    signal = self._check_short_strategies(symbol, ohlcv)
+                else:
+                    logger.debug(f"Short selling not allowed in {params['mode']} mode, skipping")
             elif self.current_phase == MarketPhase.RANGE:
-                signal = self._check_range_strategies(coin["symbol"], ohlcv)
-            if signal and self._can_open_new_position(coin["symbol"]):
-                self._open_position(signal)
+                signal = self._check_range_strategies(symbol, ohlcv)
+            
+            if signal:
+                # Use risk manager to validate and open position
+                can_open, reason = self.risk_manager.can_open_trade(symbol, signal['action'])
+                if can_open:
+                    # Calculate position size
+                    quantity = self.risk_manager.calculate_position_size(symbol, current_price)
+                    signal['quantity'] = quantity
+                    self._open_position(signal)
+                else:
+                    logger.debug(f"Cannot open position for {symbol}: {reason}")
 
     def _check_long_strategies(self, symbol, ohlcv):
         for s in [self.long_trader.check_breakout_strategy, self.long_trader.check_support_bounce_strategy, self.long_trader.check_volatility_scalping_strategy]:
@@ -143,74 +251,97 @@ class CryptoTradingBot:
             if sig: return sig
         return None
 
-    def _can_open_new_position(self, symbol):
-        if len(self.open_positions) >= MAX_CONCURRENT_TRADES: return False
-        if any(p["symbol"] == symbol for p in self.open_positions): return False
-        if self.loss_streak >= MAX_LOSS_STREAK:
-            logger.warning(f"Loss streak limit reached ({self.loss_streak})")
-            return False
-        return True
-
     def _open_position(self, signal):
+        """Open a new position using risk manager"""
         try:
-            logger.info(f"Opening {signal['action']} position for {signal['symbol']}")
-            position = {**signal, "quantity": signal["position_size"], "entry_time": time.time(), "tp1_hit": False}
-            self.open_positions.append(position)
-            logger.info(f"Position opened: {signal['strategy']} on {signal['symbol']}")
+            symbol = signal['symbol']
+            side = signal['action']
+            quantity = signal.get('quantity', 0)
+            
+            # Get current price
+            ticker = self.client.get_ticker(symbol)
+            entry_price = float(ticker.get("last_price", 50000))
+            
+            # Open trade through risk manager
+            trade = self.risk_manager.open_trade(symbol, side, entry_price, quantity)
+            
+            if trade:
+                logger.info(
+                    f"✓ OPENED {trade.mode.value} POSITION: {side} {symbol} | "
+                    f"Qty: {quantity} @ {entry_price} | "
+                    f"SL: {trade.stop_loss_price:.4f} | "
+                    f"TP1: {trade.tp1_price:.4f} | "
+                    f"TP2: {trade.tp2_price:.4f} | "
+                    f"Strategy: {signal.get('strategy', 'Unknown')}"
+                )
+            else:
+                logger.warning(f"Failed to open position for {symbol}")
         except Exception as e:
             logger.error(f"Error opening position: {e}")
 
     def _manage_open_positions(self):
-        to_remove = []
-        for i, pos in enumerate(self.open_positions):
-            ticker = self.client.get_ticker(pos["symbol"])
-            price = float(ticker.get("last_price", pos["entry_price"]))
-            if pos["action"] == "BUY":
-                actions = self.long_trader.manage_position(pos, price)
-            else:
-                actions = self.short_trader.manage_position(pos, price)
-            if actions["close"]:
-                self._close_position(pos, price, actions["reason"])
-                to_remove.append(i)
-            elif actions["close_partial"]:
-                logger.info(f"Closing {actions.get('close_percent', 50)}% of {pos['symbol']}")
-            elif actions["adjust_stop_loss"]:
-                pos["stop_loss"] = actions["new_stop_loss"]
-                logger.info(f"Adjusted stop loss for {pos['symbol']}")
-        for i in sorted(to_remove, reverse=True):
-            self.open_positions.pop(i)
-
-    def _close_position(self, pos, exit_price, reason):
-        entry = pos["entry_price"]
-        qty = pos["quantity"]
-        profit = (exit_price - entry) * qty if pos["action"] == "BUY" else (entry - exit_price) * qty
-        self.stats["total_trades"] += 1
-        if profit > 0:
-            self.stats["winning_trades"] += 1
-            self.stats["total_profit"] += profit
-            self.loss_streak = 0
-        else:
-            self.stats["losing_trades"] += 1
-            self.stats["total_loss"] += abs(profit)
-            self.loss_streak += 1
-        self.trades_history.append({"symbol": pos["symbol"], "profit": profit, "strategy": pos["strategy"]})
-        logger.info(f"Closed {pos['action']} {pos['symbol']}: Profit={profit:.2f} USDT, Reason={reason}")
-        if self.loss_streak >= MAX_LOSS_STREAK:
-            logger.warning(f"Loss streak of {self.loss_streak} reached. Pausing.")
-            self.pause()
+        """Manage open positions using risk manager"""
+        # Get current prices for all symbols
+        prices = {}
+        for symbol in self.risk_manager.open_trades.keys():
+            try:
+                ticker = self.client.get_ticker(symbol)
+                prices[symbol] = float(ticker.get("last_price", 0))
+            except Exception as e:
+                logger.error(f"Error getting price for {symbol}: {e}")
+        
+        if not prices:
+            return
+        
+        # Update trades and get actions
+        actions = self.risk_manager.update_trades(prices)
+        
+        # Execute actions
+        for symbol, action_data in actions.items():
+            action = action_data.get('action')
+            reason = action_data.get('reason')
+            
+            if action == 'CLOSE_ALL':
+                logger.info(f"Closing {symbol}: {reason}")
+            elif action == 'CLOSE_HALF':
+                logger.info(f"Closing 50% of {symbol}: {reason}")
+            elif action == 'UPDATE_STOP':
+                new_stop = action_data.get('new_stop_price')
+                logger.info(f"Updated stop loss for {symbol} to {new_stop:.4f}: {reason}")
 
     def _close_all_positions(self):
-        for pos in self.open_positions:
-            ticker = self.client.get_ticker(pos["symbol"])
-            self._close_position(pos, float(ticker.get("last_price", pos["entry_price"])), "Bot stopped")
-        self.open_positions = []
+        """Close all open positions"""
+        prices = {}
+        for symbol in self.risk_manager.open_trades.keys():
+            try:
+                ticker = self.client.get_ticker(symbol)
+                prices[symbol] = float(ticker.get("last_price", 0))
+            except Exception as e:
+                logger.error(f"Error getting price for {symbol}: {e}")
+        
+        self.risk_manager.force_close_all(prices, "Bot stopped")
+        logger.info("All positions closed")
 
     def _update_monitoring(self):
-        if self.open_positions:
-            logger.debug(f"Open positions: {len(self.open_positions)}")
+        """Update monitoring and log statistics periodically"""
+        stats = self.risk_manager.get_statistics()
+        
+        # Log summary every 30 seconds
+        if int(time.time()) % 30 == 0:
+            logger.info(
+                f"STATS | Mode: {stats['mode']} | "
+                f"Balance: {stats['balance']:.2f} USDT | "
+                f"Open: {stats['open_trades']} | "
+                f"Total: {stats['total_trades']} | "
+                f"Win Rate: {stats['win_rate']:.1f}% | "
+                f"P&L: {stats['total_profit']:+.2f} USDT | "
+                f"Loss Streak: {stats['consecutive_losses']} | "
+                f"Paused: {stats['is_paused']}"
+            )
 
     def get_statistics(self):
-        return {**self.stats, "loss_streak": self.loss_streak, "open_positions": len(self.open_positions), "current_phase": self.current_phase.value if self.current_phase else None}
+        """Get comprehensive trading statistics"""
+        return self.risk_manager.get_statistics()
 
 
 class Config:
@@ -221,9 +352,21 @@ class Config:
 
 
 if __name__ == "__main__":
-    bot = CryptoTradingBot()
+    # Example: Start with 100 USDT (will use SPOT mode)
+    # Change to 500+ USDT to enable FUTURES mode
+    initial_balance = 100.0
+    
+    print(f"\n{'='*60}")
+    print(f"CRYPTO TRADING BOT - STARTING")
+    print(f"{'='*60}")
+    print(f"Initial Balance: {initial_balance} USDT")
+    print(f"Mode Threshold: {BALANCE_THRESHOLD_USDT} USDT")
+    print(f"Expected Mode: {'FUTURES' if initial_balance >= BALANCE_THRESHOLD_USDT else 'SPOT'}")
+    print(f"{'='*60}\n")
+    
+    bot = CryptoTradingBot(initial_balance=initial_balance)
     try:
         bot.start()
     except KeyboardInterrupt:
-        print("Shutting down...")
+        print("\nShutting down...")
         bot.stop()
