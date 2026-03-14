@@ -170,6 +170,32 @@ class CryptoTradingBot:
         
         return MockClient()
 
+    def _get_ohlcv_data(self, symbol, timeframe="5m", limit=100):
+        """Get OHLCV data from client (wrapper for compatibility)"""
+        try:
+            if hasattr(self.client, 'get_ohlcv'):
+                return self.client.get_ohlcv(symbol, timeframe, limit)
+            else:
+                # Fallback for different API versions
+                return self.client.get_kline(symbol=symbol, interval=timeframe, limit=limit)
+        except Exception as e:
+            logger.error(f"Error getting OHLCV for {symbol}: {e}")
+            return []
+
+    def _get_ticker_price(self, symbol):
+        """Get current ticker price (wrapper for compatibility)"""
+        try:
+            if hasattr(self.client, 'get_ticker'):
+                ticker = self.client.get_ticker(symbol)
+                return float(ticker.get("last_price", 0))
+            else:
+                # Fallback for different API versions
+                ticker = self.client.get_tickers(category="spot", symbol=symbol)
+                return float(ticker.get("list", [{}])[0].get("lastPrice", 0))
+        except Exception as e:
+            logger.error(f"Error getting ticker for {symbol}: {e}")
+            return 0.0
+
     def start(self):
         logger.info("Starting crypto trading bot...")
         self.state = TradingState.ACTIVE
@@ -274,9 +300,10 @@ class CryptoTradingBot:
                 continue
             
             # Get OHLCV data
-            ohlcv = self.client.get_ohlcv(symbol, "5m", limit=100)
-            ticker = self.client.get_ticker(symbol)
-            current_price = float(ticker.get("last_price", 50000))
+            ohlcv = self._get_ohlcv_data(symbol, "5m", limit=100)
+            current_price = self._get_ticker_price(symbol)
+            if current_price == 0:
+                current_price = ohlcv[-1]['close'] if ohlcv else 50000
             
             signal = None
             
@@ -329,8 +356,10 @@ class CryptoTradingBot:
             quantity = signal.get('quantity', 0)
             
             # Get current price
-            ticker = self.client.get_ticker(symbol)
-            entry_price = float(ticker.get("last_price", 50000))
+            entry_price = self._get_ticker_price(symbol)
+            if entry_price == 0:
+                logger.error(f"Cannot get price for {symbol}, skipping")
+                return
             
             # Open trade through risk manager
             trade = self.risk_manager.open_trade(symbol, side, entry_price, quantity)
@@ -355,8 +384,9 @@ class CryptoTradingBot:
         prices = {}
         for symbol in self.risk_manager.open_trades.keys():
             try:
-                ticker = self.client.get_ticker(symbol)
-                prices[symbol] = float(ticker.get("last_price", 0))
+                price = self._get_ticker_price(symbol)
+                if price > 0:
+                    prices[symbol] = price
             except Exception as e:
                 logger.error(f"Error getting price for {symbol}: {e}")
         
@@ -384,8 +414,9 @@ class CryptoTradingBot:
         prices = {}
         for symbol in self.risk_manager.open_trades.keys():
             try:
-                ticker = self.client.get_ticker(symbol)
-                prices[symbol] = float(ticker.get("last_price", 0))
+                price = self._get_ticker_price(symbol)
+                if price > 0:
+                    prices[symbol] = price
             except Exception as e:
                 logger.error(f"Error getting price for {symbol}: {e}")
         
