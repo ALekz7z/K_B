@@ -173,11 +173,14 @@ class CryptoTradingBot:
     def _get_ohlcv_data(self, symbol, timeframe="5m", limit=100):
         """Get OHLCV data from client (wrapper for compatibility)"""
         try:
+            # Mock client uses get_ohlcv, real pybit may use different methods
             if hasattr(self.client, 'get_ohlcv'):
                 return self.client.get_ohlcv(symbol, timeframe, limit)
-            else:
-                # Fallback for different API versions
+            elif hasattr(self.client, 'get_kline'):
                 return self.client.get_kline(symbol=symbol, interval=timeframe, limit=limit)
+            else:
+                logger.warning(f"No OHLCV method found for client type")
+                return []
         except Exception as e:
             logger.error(f"Error getting OHLCV for {symbol}: {e}")
             return []
@@ -185,13 +188,20 @@ class CryptoTradingBot:
     def _get_ticker_price(self, symbol):
         """Get current ticker price (wrapper for compatibility)"""
         try:
+            # Mock client uses get_ticker, real pybit may use get_tickers
             if hasattr(self.client, 'get_ticker'):
                 ticker = self.client.get_ticker(symbol)
-                return float(ticker.get("last_price", 0))
-            else:
-                # Fallback for different API versions
+                if isinstance(ticker, dict):
+                    return float(ticker.get("last_price", 0))
+                return 0.0
+            elif hasattr(self.client, 'get_tickers'):
                 ticker = self.client.get_tickers(category="spot", symbol=symbol)
-                return float(ticker.get("list", [{}])[0].get("lastPrice", 0))
+                if isinstance(ticker, dict) and "list" in ticker:
+                    return float(ticker.get("list", [{}])[0].get("lastPrice", 0))
+                return 0.0
+            else:
+                logger.warning(f"No ticker method found for client type")
+                return 0.0
         except Exception as e:
             logger.error(f"Error getting ticker for {symbol}: {e}")
             return 0.0
