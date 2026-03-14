@@ -28,8 +28,9 @@ class MarketAnalyzer:
         self.client = bybit_client
         self.config = config
         # Use wrapper functions if provided (for compatibility with different API versions)
-        self._get_ohlcv = get_ohlcv_func if get_ohlcv_func else self.client.get_ohlcv
-        self._get_ticker = get_ticker_func if get_ticker_func else self.client.get_ticker
+        # Default to None - will be set by main bot if not provided
+        self._get_ohlcv = get_ohlcv_func
+        self._get_ticker = get_ticker_func
         self.adaptive_params = {
             'ema_period': 50,
             'adx_threshold': 25,

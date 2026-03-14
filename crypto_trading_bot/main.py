@@ -187,24 +187,53 @@ class CryptoTradingBot:
         
         return MockClient()
 
+    def _convert_timeframe(self, timeframe: str) -> str:
+        """Convert timeframe to Bybit v5 format (numeric string without 'm')"""
+        if not timeframe:
+            return "5"  # Default to 5 minutes
+            
+        timeframe = str(timeframe).strip()
+        
+        if timeframe.endswith('m'):
+            return timeframe[:-1]  # Remove 'm' suffix: "5m" -> "5"
+        elif timeframe.endswith('h'):
+            hours = timeframe[:-1]
+            return f"{int(hours) * 60}"  # Convert hours to minutes: "1h" -> "60"
+        elif timeframe.endswith('d'):
+            days = timeframe[:-1]
+            return f"{int(days) * 1440}"  # Convert days to minutes: "1d" -> "1440"
+        
+        # If already numeric, return as is
+        try:
+            int(timeframe)
+            return timeframe
+        except ValueError:
+            return "5"  # Default fallback
+    
     def _get_ohlcv_data(self, symbol, timeframe="5m", limit=100):
         """Get OHLCV data from client (wrapper for pybit v5 compatibility)"""
         try:
             # Determine category based on trading mode
             category = "spot" if self.risk_manager.trading_mode.value == "SPOT" else "linear"
             
+            # Convert timeframe to Bybit v5 format
+            bybit_interval = self._convert_timeframe(timeframe)
+            
+            logger.debug(f"Requesting kline data for {symbol}: category={category}, interval={bybit_interval}, limit={limit}")
+            
             # Pybit v5+ uses get_kline with category parameter
             response = self.client.get_kline(
                 category=category,
                 symbol=symbol,
-                interval=timeframe,
+                interval=bybit_interval,
                 limit=limit
             )
             
             # Extract list from response and convert to expected format
             if isinstance(response, dict) and "retCode" in response:
                 if response["retCode"] != 0:
-                    logger.error(f"API error for {symbol}: {response.get('retMsg', 'Unknown error')}")
+                    error_msg = response.get('retMsg', 'Unknown error').replace('→', '->').replace('\u2192', '->')
+                    logger.error(f"API error for {symbol}: {error_msg}")
                     return []
                     
                 klines = response.get("list", [])
@@ -227,7 +256,9 @@ class CryptoTradingBot:
                 return []
                 
         except Exception as e:
-            logger.error(f"Error getting OHLCV for {symbol}: {e}")
+            # Convert exception to string safely, avoiding special characters
+            error_msg = str(e).replace('→', '->').replace('\u2192', '->')
+            logger.error(f"Error getting OHLCV for {symbol}: {error_msg}")
             return []
 
     def _get_ticker_price(self, symbol):
@@ -260,7 +291,9 @@ class CryptoTradingBot:
                 return 0.0
                 
         except Exception as e:
-            logger.error(f"Error getting ticker for {symbol}: {e}")
+            # Convert exception to string safely, avoiding special characters
+            error_msg = str(e).replace('→', '->').replace('\u2192', '->')
+            logger.error(f"Error getting ticker for {symbol}: {error_msg}")
             return 0.0
 
     def start(self):

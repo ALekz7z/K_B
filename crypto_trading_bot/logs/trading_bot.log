@@ -25,3 +25,59 @@
 2026-03-14 16:09:58,598 - __main__ - INFO - Dominant market phase: UNCERTAIN
 2026-03-14 16:10:17,415 - __main__ - INFO - Stopping crypto trading bot...
 2026-03-14 16:10:17,416 - __main__ - INFO - All positions closed
+2026-03-14 17:35:52,452 - __main__ - ERROR - pybit library not installed. Install with: pip install pybit
+2026-03-14 17:35:52,452 - __main__ - INFO - Crypto Trading Bot initialized with 100.00 USDT
+2026-03-14 17:35:52,452 - __main__ - INFO - Trading Mode: SPOT
+2026-03-14 17:35:52,452 - __main__ - INFO - === SPOT MODE PARAMETERS ===
+2026-03-14 17:35:52,452 - __main__ - INFO - Position Size: 12.0% of balance
+2026-03-14 17:35:52,453 - __main__ - INFO - Leverage: 1x
+2026-03-14 17:35:52,453 - __main__ - INFO - Stop Loss: 4.0%
+2026-03-14 17:35:52,453 - __main__ - INFO - Take Profit 1: 1.5%
+2026-03-14 17:35:52,453 - __main__ - INFO - Take Profit 2: 3.0%
+2026-03-14 17:35:52,453 - __main__ - INFO - Trailing Stop Activation: 2.0%
+2026-03-14 17:35:52,453 - __main__ - INFO - Max Concurrent Trades: 2
+2026-03-14 17:35:52,453 - __main__ - INFO - Max Loss Streak: 5
+2026-03-14 17:35:52,453 - __main__ - INFO - Short Selling Allowed: False
+2026-03-14 17:35:52,454 - __main__ - INFO - ========================================
+2026-03-14 17:35:52,457 - __main__ - INFO - Starting crypto trading bot...
+2026-03-14 17:35:52,457 - __main__ - INFO - Balance: 100.00 USDT - Trading SPOT (no leverage)
+2026-03-14 17:35:52,457 - __main__ - INFO - Performing market analysis...
+2026-03-14 17:35:52,514 - modules.analyzer - WARNING - Not enough data for BTCUSDT
+2026-03-14 17:35:52,516 - modules.analyzer - WARNING - Not enough data for ETHUSDT
+2026-03-14 17:35:52,518 - modules.analyzer - WARNING - Not enough data for BNBUSDT
+2026-03-14 17:35:52,518 - __main__ - INFO - BTCUSDT: UNCERTAIN
+2026-03-14 17:35:52,518 - __main__ - INFO - ETHUSDT: UNCERTAIN
+2026-03-14 17:35:52,534 - __main__ - INFO - BNBUSDT: UNCERTAIN
+2026-03-14 17:35:52,535 - __main__ - INFO - Dominant market phase: UNCERTAIN
+2026-03-14 17:35:52,535 - modules.analyzer - WARNING - Ticker returned price only for BTCUSDT, using mock data
+2026-03-14 17:35:52,535 - modules.analyzer - WARNING - Ticker returned price only for ETHUSDT, using mock data
+2026-03-14 17:35:52,536 - modules.analyzer - WARNING - Ticker returned price only for BNBUSDT, using mock data
+2026-03-14 17:36:03,179 - __main__ - INFO - Stopping crypto trading bot...
+2026-03-14 17:36:03,180 - __main__ - INFO - All positions closed
+2026-03-14 17:41:16,593 - __main__ - ERROR - pybit library not installed. Install with: pip install pybit
+2026-03-14 17:41:16,594 - __main__ - INFO - Crypto Trading Bot initialized with 100.00 USDT
+2026-03-14 17:41:16,594 - __main__ - INFO - Trading Mode: SPOT
+2026-03-14 17:41:16,595 - __main__ - INFO - === SPOT MODE PARAMETERS ===
+2026-03-14 17:41:16,595 - __main__ - INFO - Position Size: 12.0% of balance
+2026-03-14 17:41:16,595 - __main__ - INFO - Leverage: 1x
+2026-03-14 17:41:16,596 - __main__ - INFO - Stop Loss: 4.0%
+2026-03-14 17:41:16,596 - __main__ - INFO - Take Profit 1: 1.5%
+2026-03-14 17:41:16,596 - __main__ - INFO - Take Profit 2: 3.0%
+2026-03-14 17:41:16,596 - __main__ - INFO - Trailing Stop Activation: 2.0%
+2026-03-14 17:41:16,596 - __main__ - INFO - Max Concurrent Trades: 2
+2026-03-14 17:41:16,597 - __main__ - INFO - Max Loss Streak: 5
+2026-03-14 17:41:16,597 - __main__ - INFO - Short Selling Allowed: False
+2026-03-14 17:41:16,597 - __main__ - INFO - ========================================
+2026-03-14 17:41:16,597 - __main__ - INFO - Starting crypto trading bot...
+2026-03-14 17:41:16,597 - __main__ - INFO - Balance: 100.00 USDT - Trading SPOT (no leverage)
+2026-03-14 17:41:16,597 - __main__ - INFO - Performing market analysis...
+2026-03-14 17:41:16,677 - modules.analyzer - WARNING - Not enough data for BTCUSDT
+2026-03-14 17:41:16,680 - modules.analyzer - WARNING - Not enough data for ETHUSDT
+2026-03-14 17:41:16,681 - modules.analyzer - WARNING - Not enough data for BNBUSDT
+2026-03-14 17:41:16,682 - __main__ - INFO - BTCUSDT: UNCERTAIN
+2026-03-14 17:41:16,682 - __main__ - INFO - ETHUSDT: UNCERTAIN
+2026-03-14 17:41:16,682 - __main__ - INFO - BNBUSDT: UNCERTAIN
+2026-03-14 17:41:16,682 - __main__ - INFO - Dominant market phase: UNCERTAIN
+2026-03-14 17:41:16,682 - modules.analyzer - WARNING - Ticker returned price only for BTCUSDT, using mock data
+2026-03-14 17:41:16,682 - modules.analyzer - WARNING - Ticker returned price only for ETHUSDT, using mock data
+2026-03-14 17:41:16,682 - modules.analyzer - WARNING - Ticker returned price only for BNBUSDT, using mock data
