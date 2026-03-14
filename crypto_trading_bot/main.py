@@ -173,11 +173,33 @@ class CryptoTradingBot:
     def _get_ohlcv_data(self, symbol, timeframe="5m", limit=100):
         """Get OHLCV data from client (wrapper for compatibility)"""
         try:
-            # Mock client uses get_ohlcv, real pybit may use different methods
+            # Mock client uses get_ohlcv, real pybit v5+ uses get_kline with different params
             if hasattr(self.client, 'get_ohlcv'):
                 return self.client.get_ohlcv(symbol, timeframe, limit)
             elif hasattr(self.client, 'get_kline'):
-                return self.client.get_kline(symbol=symbol, interval=timeframe, limit=limit)
+                # Pybit v5+ unified trading API
+                response = self.client.get_kline(
+                    category="spot" if self.risk_manager.trading_mode.value == "SPOT" else "linear",
+                    symbol=symbol,
+                    interval=timeframe,
+                    limit=limit
+                )
+                # Extract list from response
+                if isinstance(response, dict) and "list" in response:
+                    klines = response["list"]
+                    # Convert to expected format
+                    data = []
+                    for k in klines:
+                        data.append({
+                            "timestamp": int(k[0]) / 1000,  # Convert ms to seconds
+                            "open": float(k[1]),
+                            "high": float(k[2]),
+                            "low": float(k[3]),
+                            "close": float(k[4]),
+                            "volume": float(k[5])
+                        })
+                    return data
+                return []
             else:
                 logger.warning(f"No OHLCV method found for client type")
                 return []
@@ -188,16 +210,25 @@ class CryptoTradingBot:
     def _get_ticker_price(self, symbol):
         """Get current ticker price (wrapper for compatibility)"""
         try:
-            # Mock client uses get_ticker, real pybit may use get_tickers
+            # Mock client uses get_ticker, real pybit v5+ uses get_tickers with category
             if hasattr(self.client, 'get_ticker'):
-                ticker = self.client.get_ticker(symbol)
-                if isinstance(ticker, dict):
-                    return float(ticker.get("last_price", 0))
+                # Try both old and new API formats
+                try:
+                    # First try direct get_ticker (mock client or old API)
+                    ticker = self.client.get_ticker(symbol)
+                    if isinstance(ticker, dict):
+                        return float(ticker.get("last_price", ticker.get("lastPrice", 0)))
+                except:
+                    pass
                 return 0.0
             elif hasattr(self.client, 'get_tickers'):
-                ticker = self.client.get_tickers(category="spot", symbol=symbol)
-                if isinstance(ticker, dict) and "list" in ticker:
-                    return float(ticker.get("list", [{}])[0].get("lastPrice", 0))
+                # Pybit v5+ unified trading API
+                category = "spot" if self.risk_manager.trading_mode.value == "SPOT" else "linear"
+                response = self.client.get_tickers(category=category, symbol=symbol)
+                if isinstance(response, dict) and "list" in response:
+                    tickers_list = response["list"]
+                    if tickers_list and len(tickers_list) > 0:
+                        return float(tickers_list[0].get("lastPrice", 0))
                 return 0.0
             else:
                 logger.warning(f"No ticker method found for client type")
