@@ -4,6 +4,12 @@
 numpy>=1.24.0
 pandas>=2.0.0
 
+# Bybit API v5
+pybit==5.7.0
+
+# Alternative API (optional)
+ccxt>=4.0.0
+
 # API and networking
 requests>=2.31.0
 websockets>=11.0
