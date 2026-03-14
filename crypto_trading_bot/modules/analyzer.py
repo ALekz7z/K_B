@@ -24,9 +24,12 @@ class MarketAnalyzer:
     Selects top coins for trading based on multiple filters.
     """
     
-    def __init__(self, bybit_client, config):
+    def __init__(self, bybit_client, config, get_ohlcv_func=None, get_ticker_func=None):
         self.client = bybit_client
         self.config = config
+        # Use wrapper functions if provided (for compatibility with different API versions)
+        self._get_ohlcv = get_ohlcv_func if get_ohlcv_func else self.client.get_ohlcv
+        self._get_ticker = get_ticker_func if get_ticker_func else self.client.get_ticker
         self.adaptive_params = {
             'ema_period': 50,
             'adx_threshold': 25,
@@ -41,8 +44,8 @@ class MarketAnalyzer:
         All conditions must be met for LONG or SHORT phase.
         """
         try:
-            # Get OHLCV data
-            ohlcv = self.client.get_ohlcv(symbol, timeframe)
+            # Get OHLCV data using wrapper function
+            ohlcv = self._get_ohlcv(symbol, timeframe)
             if ohlcv is None or len(ohlcv) < 200:
                 logger.warning(f"Not enough data for {symbol}")
                 return MarketPhase.UNCERTAIN
@@ -177,7 +180,7 @@ class MarketAnalyzer:
     def _check_liquidity(self, symbol: str) -> Tuple[bool, Dict]:
         """Check liquidity filter: volume > 50M USDT, spread < 0.1%"""
         try:
-            ticker = self.client.get_ticker(symbol)
+            ticker = self._get_ticker(symbol)
             volume_24h = float(ticker.get('volume_24h', 0))
             bid = float(ticker.get('bid_price', 0))
             ask = float(ticker.get('ask_price', 0))

@@ -53,7 +53,13 @@ class CryptoTradingBot:
         self.risk_manager = RiskManager()
         self.risk_manager.update_balance(initial_balance)
         
-        self.analyzer = MarketAnalyzer(self.client, self.config)
+        # Pass wrapper functions to analyzer for API compatibility
+        self.analyzer = MarketAnalyzer(
+            self.client, 
+            self.config,
+            get_ohlcv_func=self._get_ohlcv_data,
+            get_ticker_func=self._get_ticker_price
+        )
         self.long_trader = LongStrategies(self.client, self.config)
         self.short_trader = ShortStrategies(self.client, self.config)
         self.range_trader = RangeStrategies(self.client, self.config)
@@ -123,12 +129,12 @@ class CryptoTradingBot:
         import numpy as np
         
         class MockClient:
-            def get_ohlcv(self, symbol, timeframe, limit=200):
-                # Generate realistic mock OHLCV data
+            def get_kline(self, category, symbol, interval, limit):
+                # Generate realistic mock OHLCV data (pybit v5 format)
                 base_price = 50000 if "BTC" in symbol else 3000 if "ETH" in symbol else 300
-                data = []
-                current_price = base_price
+                data = {"retCode": 0, "retMsg": "OK", "list": []}
                 
+                current_price = base_price
                 for i in range(limit):
                     change = np.random.randn() * 0.01  # 1% volatility
                     open_price = current_price
@@ -136,103 +142,123 @@ class CryptoTradingBot:
                     high_price = max(open_price, close_price) * (1 + abs(np.random.randn() * 0.005))
                     low_price = min(open_price, close_price) * (1 - abs(np.random.randn() * 0.005))
                     
-                    data.append({
-                        "timestamp": time.time() - (limit - i) * 300,
-                        "open": open_price,
-                        "high": high_price,
-                        "low": low_price,
-                        "close": close_price,
-                        "volume": np.random.uniform(1000, 10000)
-                    })
+                    # Pybit v5 format: [timestamp, open, high, low, close, volume]
+                    timestamp = int((time.time() - (limit - i) * 300) * 1000)  # ms
+                    data["list"].append([
+                        str(timestamp),
+                        str(open_price),
+                        str(high_price),
+                        str(low_price),
+                        str(close_price),
+                        str(np.random.uniform(1000, 10000))
+                    ])
                     current_price = close_price
                 
                 return data
             
-            def get_ticker(self, symbol):
+            def get_tickers(self, category, symbol):
+                # Generate mock ticker data (pybit v5 format)
                 base_price = 50000 if "BTC" in symbol else 3000 if "ETH" in symbol else 300
+                last_price = base_price * (1 + np.random.randn() * 0.001)
+                
                 return {
-                    "symbol": symbol,
-                    "bid_price": base_price * 0.999,
-                    "ask_price": base_price * 1.001,
-                    "volume_24h": 100000000,
-                    "last_price": base_price
+                    "retCode": 0,
+                    "retMsg": "OK",
+                    "list": [{
+                        "symbol": symbol,
+                        "lastPrice": str(last_price),
+                        "bid1Price": str(last_price * 0.999),
+                        "ask1Price": str(last_price * 1.001),
+                        "volume24h": str(100000000)
+                    }]
                 }
             
             def get_orderbook(self, symbol, depth=5):
                 base_price = 50000 if "BTC" in symbol else 3000 if "ETH" in symbol else 300
                 return {
+                    "retCode": 0,
+                    "retMsg": "OK",
                     "bids": [[base_price - i * 0.5, 10] for i in range(depth)],
                     "asks": [[base_price + i * 0.5, 10] for i in range(depth)]
                 }
             
             def get_balance(self):
-                return {"balance": 100.0}
+                return {"retCode": 0, "retMsg": "OK", "balance": 100.0}
         
         return MockClient()
 
     def _get_ohlcv_data(self, symbol, timeframe="5m", limit=100):
-        """Get OHLCV data from client (wrapper for compatibility)"""
+        """Get OHLCV data from client (wrapper for pybit v5 compatibility)"""
         try:
-            # Mock client uses get_ohlcv, real pybit v5+ uses get_kline with different params
-            if hasattr(self.client, 'get_ohlcv'):
-                return self.client.get_ohlcv(symbol, timeframe, limit)
-            elif hasattr(self.client, 'get_kline'):
-                # Pybit v5+ unified trading API
-                response = self.client.get_kline(
-                    category="spot" if self.risk_manager.trading_mode.value == "SPOT" else "linear",
-                    symbol=symbol,
-                    interval=timeframe,
-                    limit=limit
-                )
-                # Extract list from response
-                if isinstance(response, dict) and "list" in response:
-                    klines = response["list"]
-                    # Convert to expected format
-                    data = []
-                    for k in klines:
-                        data.append({
-                            "timestamp": int(k[0]) / 1000,  # Convert ms to seconds
-                            "open": float(k[1]),
-                            "high": float(k[2]),
-                            "low": float(k[3]),
-                            "close": float(k[4]),
-                            "volume": float(k[5])
-                        })
-                    return data
-                return []
+            # Determine category based on trading mode
+            category = "spot" if self.risk_manager.trading_mode.value == "SPOT" else "linear"
+            
+            # Pybit v5+ uses get_kline with category parameter
+            response = self.client.get_kline(
+                category=category,
+                symbol=symbol,
+                interval=timeframe,
+                limit=limit
+            )
+            
+            # Extract list from response and convert to expected format
+            if isinstance(response, dict) and "retCode" in response:
+                if response["retCode"] != 0:
+                    logger.error(f"API error for {symbol}: {response.get('retMsg', 'Unknown error')}")
+                    return []
+                    
+                klines = response.get("list", [])
+                data = []
+                for k in klines:
+                    data.append({
+                        "timestamp": int(k[0]) / 1000,  # Convert ms to seconds
+                        "open": float(k[1]),
+                        "high": float(k[2]),
+                        "low": float(k[3]),
+                        "close": float(k[4]),
+                        "volume": float(k[5])
+                    })
+                return data
+            elif isinstance(response, list):
+                # Already in list format (mock client)
+                return response
             else:
-                logger.warning(f"No OHLCV method found for client type")
+                logger.warning(f"Unexpected response format for {symbol}")
                 return []
+                
         except Exception as e:
             logger.error(f"Error getting OHLCV for {symbol}: {e}")
             return []
 
     def _get_ticker_price(self, symbol):
-        """Get current ticker price (wrapper for compatibility)"""
+        """Get current ticker price (wrapper for pybit v5 compatibility)"""
         try:
-            # Mock client uses get_ticker, real pybit v5+ uses get_tickers with category
-            if hasattr(self.client, 'get_ticker'):
-                # Try both old and new API formats
-                try:
-                    # First try direct get_ticker (mock client or old API)
-                    ticker = self.client.get_ticker(symbol)
-                    if isinstance(ticker, dict):
-                        return float(ticker.get("last_price", ticker.get("lastPrice", 0)))
-                except:
-                    pass
+            # Determine category based on trading mode
+            category = "spot" if self.risk_manager.trading_mode.value == "SPOT" else "linear"
+            
+            # Pybit v5+ uses get_tickers with category parameter
+            response = self.client.get_tickers(
+                category=category,
+                symbol=symbol
+            )
+            
+            # Extract price from response
+            if isinstance(response, dict) and "retCode" in response:
+                if response["retCode"] != 0:
+                    logger.error(f"Ticker API error for {symbol}: {response.get('retMsg', 'Unknown error')}")
+                    return 0.0
+                    
+                tickers_list = response.get("list", [])
+                if tickers_list and len(tickers_list) > 0:
+                    return float(tickers_list[0].get("lastPrice", 0))
                 return 0.0
-            elif hasattr(self.client, 'get_tickers'):
-                # Pybit v5+ unified trading API
-                category = "spot" if self.risk_manager.trading_mode.value == "SPOT" else "linear"
-                response = self.client.get_tickers(category=category, symbol=symbol)
-                if isinstance(response, dict) and "list" in response:
-                    tickers_list = response["list"]
-                    if tickers_list and len(tickers_list) > 0:
-                        return float(tickers_list[0].get("lastPrice", 0))
-                return 0.0
+            elif isinstance(response, dict):
+                # Mock client or old API format
+                return float(response.get("last_price", response.get("lastPrice", 0)))
             else:
-                logger.warning(f"No ticker method found for client type")
+                logger.warning(f"Unexpected ticker response format for {symbol}")
                 return 0.0
+                
         except Exception as e:
             logger.error(f"Error getting ticker for {symbol}: {e}")
             return 0.0
