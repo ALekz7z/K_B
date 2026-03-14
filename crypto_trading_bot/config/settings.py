@@ -1,9 +1,11 @@
 # Configuration settings for the crypto trading bot
 
-# API Settings
-BYBIT_API_KEY = ""
-BYBIT_API_SECRET = ""
-BYBIT_TESTNET = True  # Use testnet for testing
+# === API Settings ===
+BYBIT_CONFIG = {
+    "API_KEY": "",  # Вставьте ваш API ключ здесь
+    "SECRET_KEY": "",  # Вставьте ваш Secret ключ здесь
+    "TESTNET": True,  # True для демо-счета, False для реального
+}
 
 # === BALANCE-BASED TRADING MODE ===
 BALANCE_THRESHOLD_USDT = 500  # Threshold to switch between SPOT and FUTURES

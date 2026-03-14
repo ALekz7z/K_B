@@ -89,17 +89,85 @@ class CryptoTradingBot:
         logger.info("=" * 40)
 
     def _initialize_bybit_client(self):
+        """Initialize real Bybit API client"""
+        try:
+            from pybit.unified_trading import HTTP
+            
+            api_key = BYBIT_CONFIG["API_KEY"]
+            secret_key = BYBIT_CONFIG["SECRET_KEY"]
+            testnet = BYBIT_CONFIG["TESTNET"]
+            
+            if not api_key or not secret_key:
+                logger.warning("API keys not configured. Using mock client for testing.")
+                return self._create_mock_client()
+            
+            # Initialize real Bybit client
+            session = HTTP(
+                testnet=testnet,
+                api_key=api_key,
+                api_secret=secret_key,
+            )
+            
+            logger.info(f"Connected to Bybit {'TESTNET' if testnet else 'MAINNET'}")
+            return session
+            
+        except ImportError:
+            logger.error("pybit library not installed. Install with: pip install pybit")
+            return self._create_mock_client()
+        except Exception as e:
+            logger.error(f"Failed to initialize Bybit client: {e}. Using mock client.")
+            return self._create_mock_client()
+    
+    def _create_mock_client(self):
+        """Create mock client for testing without API keys"""
+        import numpy as np
+        
         class MockClient:
-            def get_ohlcv(self, symbol, timeframe, limit=100):
-                import numpy as np
-                base_price = 50000 if "BTC" in symbol else 3000
-                return [{"timestamp": time.time() - i*300, "open": base_price*(1+np.random.randn()*0.01), "high": base_price*1.002, "low": base_price*0.998, "close": base_price, "volume": np.random.uniform(100, 1000)} for i in range(limit)]
+            def get_ohlcv(self, symbol, timeframe, limit=200):
+                # Generate realistic mock OHLCV data
+                base_price = 50000 if "BTC" in symbol else 3000 if "ETH" in symbol else 300
+                data = []
+                current_price = base_price
+                
+                for i in range(limit):
+                    change = np.random.randn() * 0.01  # 1% volatility
+                    open_price = current_price
+                    close_price = open_price * (1 + change)
+                    high_price = max(open_price, close_price) * (1 + abs(np.random.randn() * 0.005))
+                    low_price = min(open_price, close_price) * (1 - abs(np.random.randn() * 0.005))
+                    
+                    data.append({
+                        "timestamp": time.time() - (limit - i) * 300,
+                        "open": open_price,
+                        "high": high_price,
+                        "low": low_price,
+                        "close": close_price,
+                        "volume": np.random.uniform(1000, 10000)
+                    })
+                    current_price = close_price
+                
+                return data
+            
             def get_ticker(self, symbol):
-                return {"symbol": symbol, "bid_price": 50000, "ask_price": 50001, "volume_24h": 100000000, "last_price": 50000}
+                base_price = 50000 if "BTC" in symbol else 3000 if "ETH" in symbol else 300
+                return {
+                    "symbol": symbol,
+                    "bid_price": base_price * 0.999,
+                    "ask_price": base_price * 1.001,
+                    "volume_24h": 100000000,
+                    "last_price": base_price
+                }
+            
             def get_orderbook(self, symbol, depth=5):
-                return {"bids": [[50000-i*0.5, 10] for i in range(depth)], "asks": [[50001+i*0.5, 10] for i in range(depth)]}
+                base_price = 50000 if "BTC" in symbol else 3000 if "ETH" in symbol else 300
+                return {
+                    "bids": [[base_price - i * 0.5, 10] for i in range(depth)],
+                    "asks": [[base_price + i * 0.5, 10] for i in range(depth)]
+                }
+            
             def get_balance(self):
-                return {"balance": 100.0}  # Mock balance
+                return {"balance": 100.0}
+        
         return MockClient()
 
     def start(self):
