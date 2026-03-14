@@ -180,7 +180,9 @@ class CryptoTradingBot:
         phase_counts = {}
         for p in phases.values():
             phase_counts[p] = phase_counts.get(p, 0) + 1
-        self.current_phase = max(phase_counts, key=phase_counts.get)
+        
+        # Find the most common phase
+        self.current_phase = max(phase_counts.keys(), key=lambda k: phase_counts[k])
         logger.info(f"Dominant market phase: {self.current_phase.value}")
         self.selected_coins = self.analyzer.select_coins(symbols)
         self.analyzer.update_adaptive_parameters(self.trades_history)

@@ -99,6 +99,7 @@ class LongStrategies:
             prices = np.array([c['close'] for c in ohlcv])
             volumes = np.array([c['volume'] for c in ohlcv])
             lows = np.array([c['low'] for c in ohlcv])
+            highs = np.array([c['high'] for c in ohlcv])
             opens = np.array([c['open'] for c in ohlcv])
             
             # Calculate RSI
