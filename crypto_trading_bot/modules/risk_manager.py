@@ -123,6 +123,12 @@ class TradeInfo:
                 # Spot: TP in percentage
                 self.tp1_price = self.entry_price * (1 - self.tp1_percent / 100)
                 self.tp2_price = self.entry_price * (1 - self.tp2_percent / 100)
+        
+        # Initialize trailing stop price for spot mode
+        if self.mode == TradingMode.SPOT and self.side == 'BUY':
+            self.trailing_stop_price = self.entry_price * (1 - self.stop_loss_percent / 100)
+        elif self.mode == TradingMode.SPOT and self.side == 'SELL':
+            self.trailing_stop_price = self.entry_price * (1 + self.stop_loss_percent / 100)
     
     def update_price(self, current_price: float) -> Dict:
         """
@@ -203,7 +209,7 @@ class TradeInfo:
             if self.trailing_stop_active:
                 if self.side == 'BUY':
                     new_trail = current_price - (self.trailing_activation / self.quantity)
-                    if new_trail > self.trailing_stop_price:
+                    if self.trailing_stop_price is not None and new_trail > self.trailing_stop_price:
                         self.trailing_stop_price = new_trail
                         result['action'] = 'UPDATE_STOP'
                         result['reason'] = 'TRAILING_STOP_UPDATED'
@@ -211,7 +217,7 @@ class TradeInfo:
                         return result
                 else:
                     new_trail = current_price + (self.trailing_activation / self.quantity)
-                    if new_trail < self.trailing_stop_price:
+                    if self.trailing_stop_price is not None and new_trail < self.trailing_stop_price:
                         self.trailing_stop_price = new_trail
                         result['action'] = 'UPDATE_STOP'
                         result['reason'] = 'TRAILING_STOP_UPDATED'
@@ -219,12 +225,12 @@ class TradeInfo:
                         return result
                 
                 # Check if trailing stop hit
-                if self.side == 'BUY' and current_price <= self.trailing_stop_price:
+                if self.side == 'BUY' and self.trailing_stop_price is not None and current_price <= self.trailing_stop_price:
                     result['action'] = 'CLOSE_ALL'
                     result['reason'] = 'TRAILING_STOP_HIT'
                     return result
                 
-                if self.side == 'SELL' and current_price >= self.trailing_stop_price:
+                if self.side == 'SELL' and self.trailing_stop_price is not None and current_price >= self.trailing_stop_price:
                     result['action'] = 'CLOSE_ALL'
                     result['reason'] = 'TRAILING_STOP_HIT'
                     return result
@@ -361,13 +367,15 @@ class RiskManager:
         """
         # Check if trading is paused
         if self.is_paused:
-            if datetime.now() >= self.pause_until:
+            if self.pause_until is not None and datetime.now() >= self.pause_until:
                 self.is_paused = False
                 self.pause_until = None
                 logger.info("Trading pause ended, resuming operations")
             else:
-                remaining = (self.pause_until - datetime.now()).total_seconds() / 60
-                return False, f"Trading paused due to loss streak ({remaining:.0f} min remaining)"
+                if self.pause_until is not None:
+                    remaining = (self.pause_until - datetime.now()).total_seconds() / 60
+                    return False, f"Trading paused due to loss streak ({remaining:.0f} min remaining)"
+                return False, "Trading paused"
         
         # Check consecutive losses
         params = self.get_mode_params()
@@ -418,6 +426,9 @@ class RiskManager:
         
         if risk_percent is None:
             risk_percent = params['position_size_percent']
+        
+        if risk_percent is None:
+            risk_percent = 2.0  # Default fallback
         
         # Calculate position value in USDT
         position_value = self.current_balance * (risk_percent / 100)

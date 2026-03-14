@@ -313,7 +313,7 @@ class MarketAnalyzer:
             if len(ohlcv) < 50:
                 return False, {'score': 0}
             
-            prices = np.array([c['close'] for candle in ohlcv])
+            prices = np.array([candle['close'] for candle in ohlcv])
             
             rsi = self._calculate_rsi(prices, self.config.RSI_PERIOD)
             bb_upper, bb_middle, bb_lower = self._calculate_bollinger_bands(prices)
