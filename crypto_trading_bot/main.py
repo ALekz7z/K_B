@@ -175,7 +175,7 @@ class CryptoTradingBot:
             
             def get_orderbook(self, category="linear", symbol=None, depth=5):
                 # Support both old and new signature (with/without category)
-                base_price = 50000 if "BTC" in symbol else 3000 if "ETH" in symbol else 300
+                base_price = 50000 if symbol and "BTC" in str(symbol) else 3000 if symbol and "ETH" in str(symbol) else 300
                 return {
                     "retCode": 0,
                     "retMsg": "OK",
