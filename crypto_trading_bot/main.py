@@ -270,13 +270,25 @@ class CryptoTradingBot:
         timeframe = str(timeframe).strip()
         
         if timeframe.endswith('m'):
-            return timeframe[:-1]  # Remove 'm' suffix: "5m" -> "5"
+            mins = timeframe[:-1]  # Remove 'm' suffix: "5m" -> "5"
+            # For minute intervals that are standard, use numeric format
+            # For non-standard intervals, Bybit may require alternative format
+            try:
+                mins_int = int(mins)
+                # Standard minute intervals supported by Bybit spot
+                if mins_int in [1, 3, 5, 15, 30]:
+                    return mins
+                else:
+                    # Non-standard, will need fallback
+                    return mins
+            except ValueError:
+                return "5"
         elif timeframe.endswith('h'):
             hours = timeframe[:-1]
             return f"{int(hours) * 60}"  # Convert hours to minutes: "1h" -> "60"
         elif timeframe.endswith('d'):
-            days = timeframe[:-1]
-            return f"{int(days) * 1440}"  # Convert days to minutes: "1d" -> "1440"
+            # For daily timeframe, use numeric format first (will be converted to "D" if needed)
+            return "1440"  # "1d" -> "1440"
         
         # If already numeric, return as is
         try:
@@ -307,11 +319,13 @@ class CryptoTradingBot:
             # Check if error is "Invalid period" - try alternative format
             if isinstance(response, dict) and response.get("retCode") != 0:
                 error_msg = response.get('retMsg', '')
-                if 'Invalid period' in error_msg or 'period' in error_msg.lower():
+                ret_code = response.get("retCode")
+                # Check for Invalid period error (ErrCode: 10001) or any period-related error
+                if 'Invalid period' in error_msg or 'period' in error_msg.lower() or ret_code == 10001:
                     logger.info(f"Interval '{bybit_interval}' not supported for {symbol}, trying alternative format...")
                     # Try with string interval format (e.g., "D" for daily)
                     alt_interval = self._get_alternative_interval(bybit_interval)
-                    if alt_interval:
+                    if alt_interval and alt_interval != bybit_interval:
                         logger.debug(f"Retrying with alternative interval: {alt_interval}")
                         response = self.client.get_kline(
                             category=category,
@@ -381,7 +395,8 @@ class CryptoTradingBot:
         try:
             interval_num = int(interval)
             
-            # Daily intervals
+            # For spot category, some intervals work better with string format
+            # Daily intervals - use string format for spot category
             if interval_num == 1440:
                 return "D"
             elif interval_num == 720:
@@ -394,19 +409,13 @@ class CryptoTradingBot:
                 return "2H"
             elif interval_num == 60:
                 return "H"
-            elif interval_num == 30:
-                return "30"
-            elif interval_num == 15:
-                return "15"
-            elif interval_num == 5:
-                return "5"
-            elif interval_num == 3:
-                return "3"
-            elif interval_num == 1:
-                return "1"
-            else:
-                # For other values, try to return as string without conversion
+            # For minute intervals, keep numeric format (they work fine)
+            elif interval_num in [30, 15, 5, 3, 1]:
+                # These work fine as numeric, but provide string alternative if needed
                 return str(interval_num)
+            else:
+                # For other values, no alternative format available
+                return None
         except (ValueError, TypeError):
             # If already a string, try to convert back to numeric
             interval_str = str(interval).upper()
