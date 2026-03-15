@@ -192,9 +192,10 @@ class MarketAnalyzer:
                 bid = ticker_data * 0.9995  # 0.05% spread mock
                 ask = ticker_data * 1.0005
             elif isinstance(ticker_data, dict):
-                volume_24h = float(ticker_data.get('volume_24h', 0))
-                bid = float(ticker_data.get('bid_price', 0))
-                ask = float(ticker_data.get('ask_price', 0))
+                # Support both old and new key names
+                volume_24h = float(ticker_data.get('volume_24h', ticker_data.get('volume24h', 0)))
+                bid = float(ticker_data.get('bid_price', ticker_data.get('bid1Price', 0)))
+                ask = float(ticker_data.get('ask_price', ticker_data.get('ask1Price', 0)))
             else:
                 return False, {'score': 0}
             
@@ -291,7 +292,17 @@ class MarketAnalyzer:
     def _check_orderbook(self, symbol: str) -> Tuple[bool, Dict]:
         """Analyze orderbook depth and detect large walls"""
         try:
-            orderbook = self.client.get_orderbook(symbol, depth=5)
+            # Determine category based on trading mode (if available)
+            try:
+                # Try new API signature with category parameter
+                if hasattr(self, 'config') and hasattr(self.config, 'trading_mode'):
+                    category = "spot" if self.config.trading_mode.value == "SPOT" else "linear"
+                else:
+                    category = "linear"
+                orderbook = self.client.get_orderbook(category=category, symbol=symbol, depth=5)
+            except TypeError:
+                # Fallback to old signature without category
+                orderbook = self.client.get_orderbook(symbol, depth=5)
             
             bids = orderbook.get('bids', [])
             asks = orderbook.get('asks', [])
