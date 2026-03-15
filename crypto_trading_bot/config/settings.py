@@ -77,6 +77,7 @@ RANGE_PHASE_MACD_THRESHOLD = 0.5
 FUTURES_MIN_VOLUME_24H_USDT = 10000000  # Minimum 10M USDT for futures (more lenient)
 FUTURES_MIN_VOLATILITY_24H = 0.02  # Minimum 2% change for futures
 FUTURES_MAX_VOLATILITY_24H = 0.15  # Maximum 15% change for futures (higher volatility accepted)
+FUTURES_MIN_CANDLES_FOR_VOL = 72  # Number of 5m candles for volatility check (6 hours)
 
 # Coin Selection Filters - SPOT (balance < 500 USDT)
 SPOT_MIN_VOLUME_24H_USDT = 50000000  # Minimum 50M USDT for spot
