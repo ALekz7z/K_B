@@ -34,6 +34,7 @@ class ShortStrategies:
         """
         try:
             if len(ohlcv) < 50:
+                logger.debug(f"[{symbol}] Breakdown: Insufficient data ({len(ohlcv)} < 50)")
                 return None
             
             prices = np.array([c['close'] for c in ohlcv])
@@ -58,6 +59,20 @@ class ShortStrategies:
             trend_confirmed = ema9[-1] < ema21[-1]
             rsi_ok = rsi[-1] >= 30
             
+            # Log rejection reasons if any condition fails
+            if not (breakdown and volume_confirmed and trend_confirmed and rsi_ok):
+                reasons = []
+                if not breakdown:
+                    reasons.append(f"price {current_price:.4f} >= support {support:.4f}")
+                if not volume_confirmed:
+                    vol_ratio = current_volume / avg_volume if avg_volume > 0 else 0
+                    reasons.append(f"volume ratio {vol_ratio:.2f}x < 1.5x")
+                if not trend_confirmed:
+                    reasons.append(f"EMA9 {ema9[-1]:.4f} >= EMA21 {ema21[-1]:.4f}")
+                if not rsi_ok:
+                    reasons.append(f"RSI {rsi[-1]:.1f} < 30 (oversold)")
+                logger.debug(f"[{symbol}] Breakdown rejected: {', '.join(reasons)}")
+            
             if breakdown and volume_confirmed and trend_confirmed and rsi_ok:
                 logger.info(f"Breakdown strategy triggered for {symbol}")
                 
@@ -78,7 +93,7 @@ class ShortStrategies:
             return None
             
         except Exception as e:
-            logger.error(f"Error in breakdown strategy: {e}")
+            logger.error(f"Error in breakdown strategy for {symbol}: {e}")
             return None
     
     def check_resistance_rejection_strategy(self, symbol: str, ohlcv: List[Dict]) -> Optional[Dict]:
@@ -93,6 +108,7 @@ class ShortStrategies:
         """
         try:
             if len(ohlcv) < 50:
+                logger.debug(f"[{symbol}] Resistance rejection: Insufficient data ({len(ohlcv)} < 50)")
                 return None
             
             prices = np.array([c['close'] for c in ohlcv])
@@ -136,6 +152,22 @@ class ShortStrategies:
             is_bearish = current_close < current_open
             has_upper_shadow = (current_high - current_open) > (current_open - current_close) * 0.5
             
+            # Log rejection reasons if any condition fails
+            if not (rejection and rsi_ok and volume_confirmed and is_bearish and has_upper_shadow):
+                reasons = []
+                if not rejection:
+                    reasons.append(f"no rejection (price {current_price:.4f}, prev_high {prev_high:.4f})")
+                if not rsi_ok:
+                    reasons.append(f"RSI {rsi[-1]:.1f} not in 65-75 range")
+                if not volume_confirmed:
+                    vol_ratio = current_volume / avg_volume if avg_volume > 0 else 0
+                    reasons.append(f"volume ratio {vol_ratio:.2f}x < 1.3x")
+                if not is_bearish:
+                    reasons.append("bullish candle")
+                if not has_upper_shadow:
+                    reasons.append("no upper shadow")
+                logger.debug(f"[{symbol}] Resistance rejection rejected: {', '.join(reasons)}")
+            
             if rejection and rsi_ok and volume_confirmed and is_bearish and has_upper_shadow:
                 logger.info(f"Resistance rejection strategy triggered for {symbol}")
                 
@@ -156,7 +188,7 @@ class ShortStrategies:
             return None
             
         except Exception as e:
-            logger.error(f"Error in resistance rejection strategy: {e}")
+            logger.error(f"Error in resistance rejection strategy for {symbol}: {e}")
             return None
     
     def check_overbought_scalping_strategy(self, symbol: str, ohlcv: List[Dict]) -> Optional[Dict]:
@@ -171,6 +203,7 @@ class ShortStrategies:
         """
         try:
             if len(ohlcv) < 100:
+                logger.debug(f"[{symbol}] Overbought scalp: Insufficient data ({len(ohlcv)} < 100)")
                 return None
             
             prices = np.array([c['close'] for c in ohlcv])
@@ -207,6 +240,19 @@ class ShortStrategies:
             # Check previous 3 candles were green
             prev_3_green = all(opens[i] < prices[i] for i in range(-4, -1))
             
+            # Log rejection reasons if any condition fails
+            if not (at_upper_band and overbought and bands_compressed and prev_3_green):
+                reasons = []
+                if not at_upper_band:
+                    reasons.append(f"price {current_price:.4f} not at upper BB {bb_upper[-1]:.4f}")
+                if not overbought:
+                    reasons.append(f"Stochastic K {stoch_k[-1]:.1f} <= 80")
+                if not bands_compressed:
+                    reasons.append(f"BB width {current_bb_width:.4f} >= avg {avg_bb_width:.4f}")
+                if not prev_3_green:
+                    reasons.append("previous 3 candles not all green")
+                logger.debug(f"[{symbol}] Overbought scalp rejected: {', '.join(reasons)}")
+            
             if at_upper_band and overbought and bands_compressed and prev_3_green:
                 logger.info(f"Overbought scalping strategy triggered for {symbol}")
                 
@@ -227,7 +273,7 @@ class ShortStrategies:
             return None
             
         except Exception as e:
-            logger.error(f"Error in overbought scalping strategy: {e}")
+            logger.error(f"Error in overbought scalping strategy for {symbol}: {e}")
             return None
     
     def manage_position(self, position: Dict, current_price: float) -> Dict:
