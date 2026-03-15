@@ -271,7 +271,14 @@ class CryptoTradingBot:
         """Fetch real balance from Bybit API"""
         try:
             # For unified margin account, use wallet_balance endpoint
-            response = self.client.get_wallet_balance(accountType="UNIFIED")
+            # pybit returns a tuple: (response_data, headers) or just response_data dict
+            raw_response = self.client.get_wallet_balance(accountType="UNIFIED")
+            
+            # Handle both dict and tuple responses from pybit
+            if isinstance(raw_response, tuple):
+                response = raw_response[0] if len(raw_response) > 0 else {}
+            else:
+                response = raw_response
             
             if response.get("retCode") == 0:
                 result = response.get("result", {})
