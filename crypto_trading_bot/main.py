@@ -884,6 +884,9 @@ class CryptoTradingBot:
         for coin in self.selected_coins[:params['max_concurrent_coins']]:
             symbol = coin["symbol"] if isinstance(coin, dict) else coin
             
+            # Reset signal for each coin
+            signal = None
+            
             # Skip if already trading this symbol
             if symbol in self.risk_manager.open_trades:
                 logger.debug(f"Skipping {symbol} - already in open trades")
