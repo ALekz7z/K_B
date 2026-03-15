@@ -1,1 +1,1 @@
-Nothing should be ignored based on the provided file changes. The only modified file is a Python source code file (`crypto_trading_bot/strategies/range_strategies.py`), which should not be added to .gitignore.
+Nothing should be ignored based on the provided file changes. The modification of 'crypto_trading_bot/main.py' represents a source code file change, which does not require any new ignore rules.
