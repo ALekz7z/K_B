@@ -235,7 +235,7 @@ class LongStrategies:
         balance = 1000  # USDT
         
         # Position size = 2-3% of deposit
-        position_value = balance * self.config.POSITION_SIZE_PERCENT / 100
+        position_value = balance * self.config.position_size_percent / 100
         
         # Calculate quantity
         quantity = position_value / entry_price
