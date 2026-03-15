@@ -980,6 +980,8 @@ class Config:
         import config.settings as s
         for a in dir(s):
             if a.isupper(): setattr(self, a, getattr(s, a))
+        # Initialize trading_mode attribute (will be set by RiskManager)
+        self.trading_mode = "SPOT"  # Default mode
 
 
 if __name__ == "__main__":
