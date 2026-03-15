@@ -399,7 +399,7 @@ class RangeStrategies:
         avg_gains = np.convolve(gains, np.ones(period)/period, mode='valid')
         avg_losses = np.convolve(losses, np.ones(period)/period, mode='valid')
         
-        rs = avg_gains / (avg_losses + 1e-10)
+        rs = avg_gains / (avg_losses + np.float64(1e-10))
         rsi = 100 - (100 / (1 + rs))
         
         return rsi
