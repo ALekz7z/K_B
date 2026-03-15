@@ -79,7 +79,15 @@ MIN_VOLATILITY_24H = 0.03  # Minimum 3% change
 MAX_VOLATILITY_24H = 0.08  # Maximum 8% change
 MIN_CORRELATION_BTC = 0.3
 MAX_CORRELATION_BTC = 0.8
-TOP_COINS_TO_SELECT = 3
+TOP_COINS_TO_SELECT = 3  # Number of top coins to select for trading
+
+# Dynamic Symbol Fetching Settings
+FETCH_SYMBOLS_ENABLED = True  # Enable automatic symbol fetching from Bybit
+SYMBOL_FETCH_CATEGORY = "spot"  # Category: "spot" or "linear" (futures)
+SYMBOL_FILTER_BY_QUOTE = "USDT"  # Filter symbols by quote currency (e.g., "USDT", "USD")
+MIN_SYMBOL_PRICE = 0.0001  # Minimum symbol price to exclude very cheap coins
+SORT_BY_INDICATOR = "volume24h"  # Indicator for sorting: "volume24h", "price_change_pct", "turnover_rate"
+TOP_SYMBOLS_TO_FETCH = 30  # Number of top symbols to fetch from Bybit (can be changed anytime)
 
 # Logging
 LOG_LEVEL = "INFO"

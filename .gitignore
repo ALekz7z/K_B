@@ -1,8 +1,22 @@
 ```
-# Compiled Python files
-*.pyc
+# Python
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
 
 # Logs
 *.log
+
+# Dependencies
+.venv/
+venv/
+env/
+
+# Distribution / packaging
+build/
+dist/
+*.egg
+*.egg-info/
+*.whl
 ```
