@@ -667,23 +667,46 @@ class CryptoTradingBot:
     def _fetch_symbols_from_bybit_with_fallback(self):
         """Fetch symbols from Bybit with fallback to hardcoded list if TESTNET has no volume data"""
         try:
-            # First try to fetch from Bybit
-            symbols = self.analyzer.fetch_symbols_from_bybit()
+            # Determine category based on current trading mode
+            if self.risk_manager.trading_mode == TradingMode.FUTURES:
+                category = 'linear'  # Futures/derivatives market
+                logger.info("Fetching symbols for FUTURES mode (category=linear)")
+            else:
+                category = 'spot'  # Spot market
+                logger.info("Fetching symbols for SPOT mode (category=spot)")
+            
+            # First try to fetch from Bybit with appropriate category
+            symbols = self.analyzer.fetch_symbols_from_bybit(category=category)
             
             if symbols and len(symbols) > 0:
-                logger.info(f"Successfully fetched {len(symbols)} symbols from Bybit")
+                logger.info(f"Successfully fetched {len(symbols)} symbols from Bybit ({category})")
                 return symbols
             
             # If no symbols returned (TESTNET limitation), use fallback list
-            logger.warning("No symbols with volume data from Bybit (TESTNET limitation), using fallback list")
-            fallback_symbols = [
-                "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
-                "ADAUSDT", "DOGEUSDT", "TRXUSDT", "DOTUSDT", "MATICUSDT",
-                "LTCUSDT", "SHIBUSDT", "AVAXUSDT", "UNIUSDT", "LINKUSDT",
-                "ATOMUSDT", "ETCUSDT", "XLMUSDT", "BCHUSDT", "FILUSDT",
-                "APTUSDT", "ARBUSDT", "OPUSDT", "NEARUSDT", "VETUSDT",
-                "ICPUSDT", "ALGOUSDT", "QNTUSDT", "GRTUSDT", "SANDUSDT"
-            ]
+            logger.warning(f"No symbols with volume data from Bybit ({category}), using fallback list")
+            
+            # Different fallback lists for SPOT vs FUTURES
+            if category == 'linear':
+                # Popular futures symbols with good liquidity
+                fallback_symbols = [
+                    "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
+                    "ADAUSDT", "DOGEUSDT", "TRXUSDT", "DOTUSDT", "MATICUSDT",
+                    "LTCUSDT", "SHIBUSDT", "AVAXUSDT", "UNIUSDT", "LINKUSDT",
+                    "ATOMUSDT", "ETCUSDT", "XLMUSDT", "BCHUSDT", "FILUSDT",
+                    "APTUSDT", "ARBUSDT", "OPUSDT", "NEARUSDT", "VETUSDT",
+                    "ICPUSDT", "ALGOUSDT", "QNTUSDT", "GRTUSDT", "SANDUSDT"
+                ]
+            else:
+                # Popular spot symbols
+                fallback_symbols = [
+                    "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
+                    "ADAUSDT", "DOGEUSDT", "TRXUSDT", "DOTUSDT", "MATICUSDT",
+                    "LTCUSDT", "SHIBUSDT", "AVAXUSDT", "UNIUSDT", "LINKUSDT",
+                    "ATOMUSDT", "ETCUSDT", "XLMUSDT", "BCHUSDT", "FILUSDT",
+                    "APTUSDT", "ARBUSDT", "OPUSDT", "NEARUSDT", "VETUSDT",
+                    "ICPUSDT", "ALGOUSDT", "QNTUSDT", "GRTUSDT", "SANDUSDT"
+                ]
+            
             limit = getattr(self.config, 'TOP_SYMBOLS_TO_FETCH', 30)
             return fallback_symbols[:limit]
             
