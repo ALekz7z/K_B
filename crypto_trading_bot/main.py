@@ -416,7 +416,8 @@ class CryptoTradingBot:
             elif interval_num == 120:
                 return "2H"
             elif interval_num == 60:
-                return "H"
+                # Try numeric format as alternative to "H"
+                return "60"
             # For minute intervals, keep numeric format (they work fine)
             elif interval_num in [30, 15, 5, 3, 1]:
                 # These work fine as numeric, but provide string alternative if needed
@@ -425,17 +426,19 @@ class CryptoTradingBot:
                 # For other values, no alternative format available
                 return None
         except (ValueError, TypeError):
-            # If already a string, try to convert back to numeric
+            # If already a string, try to convert back to numeric or provide fallback
             interval_str = str(interval).upper()
             if interval_str == "D":
                 return "1440"
             elif interval_str == "H":
+                # "H" not supported for some spot pairs, use numeric
                 return "60"
             elif interval_str.endswith("H"):
                 hours = interval_str[:-1]
                 return str(int(hours) * 60)
             else:
-                return None
+                # Last resort: try 5-minute interval as universal fallback
+                return "5"
 
     def _get_string_interval(self, interval: str) -> Optional[str]:
         """
@@ -463,7 +466,8 @@ class CryptoTradingBot:
             elif interval_num == 120:
                 return "2H"
             elif interval_num == 60:
-                return "H"
+                # Use numeric format for hourly - more compatible with spot
+                return "60"
             # For minute intervals, keep numeric format (they work fine)
             elif interval_num in [30, 15, 5, 3, 1]:
                 return str(interval_num)
