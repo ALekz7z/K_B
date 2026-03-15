@@ -232,7 +232,14 @@ class ShortStrategies:
     def _calculate_position_size(self, symbol: str, entry_price: float) -> float:
         """Calculate position size based on risk parameters"""
         balance = 1000  # USDT
-        position_value = balance * self.config.position_size_percent / 100
+        
+        # Determine correct attribute based on trading mode
+        if hasattr(self.config, 'trading_mode') and self.config.trading_mode == 'FUTURES':
+            position_size_percent = getattr(self.config, 'FUTURES_POSITION_SIZE_PERCENT', 2.5)
+        else:
+            position_size_percent = getattr(self.config, 'SPOT_POSITION_SIZE_PERCENT', 12.0)
+        
+        position_value = balance * position_size_percent / 100
         quantity = position_value / entry_price
         return quantity
     
