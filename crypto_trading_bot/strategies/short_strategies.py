@@ -57,14 +57,19 @@ class ShortStrategies:
                 
                 position_size = self._calculate_position_size(symbol, current_price)
                 
+                # Get config values based on trading mode
+                stop_loss_pct = getattr(self.config, 'FUTURES_STOP_LOSS_PERCENT', getattr(self.config, 'SPOT_STOP_LOSS_PERCENT', 2.0))
+                tp1 = getattr(self.config, 'FUTURES_TAKE_PROFIT_1_USDT', getattr(self.config, 'TAKE_PROFIT_1_USDT', 2.0))
+                tp2 = getattr(self.config, 'FUTURES_TAKE_PROFIT_2_USDT', getattr(self.config, 'TAKE_PROFIT_2_USDT', 3.5))
+                
                 return {
                     'action': 'SELL',
                     'symbol': symbol,
                     'entry_price': current_price,
                     'position_size': position_size,
-                    'stop_loss': current_price * (1 + self.config.STOP_LOSS_PERCENT / 100),
-                    'take_profit_1': current_price - self.config.TAKE_PROFIT_1_USDT,
-                    'take_profit_2': current_price - self.config.TAKE_PROFIT_2_USDT,
+                    'stop_loss': current_price * (1 + stop_loss_pct / 100),
+                    'take_profit_1': current_price - tp1,
+                    'take_profit_2': current_price - tp2,
                     'strategy': 'aggressive_breakdown',
                     'reason': f'Aggressive breakdown below {local_min:.4f}'
                 }
@@ -106,14 +111,19 @@ class ShortStrategies:
                 
                 position_size = self._calculate_position_size(symbol, current_price)
                 
+                # Get config values based on trading mode
+                stop_loss_pct = getattr(self.config, 'FUTURES_STOP_LOSS_PERCENT', getattr(self.config, 'SPOT_STOP_LOSS_PERCENT', 2.0))
+                tp1 = getattr(self.config, 'FUTURES_TAKE_PROFIT_1_USDT', getattr(self.config, 'TAKE_PROFIT_1_USDT', 2.0))
+                tp2 = getattr(self.config, 'FUTURES_TAKE_PROFIT_2_USDT', getattr(self.config, 'TAKE_PROFIT_2_USDT', 3.5))
+                
                 return {
                     'action': 'SELL',
                     'symbol': symbol,
                     'entry_price': current_price,
                     'position_size': position_size,
-                    'stop_loss': current_price * (1 + self.config.STOP_LOSS_PERCENT / 100),
-                    'take_profit_1': current_price - self.config.TAKE_PROFIT_1_USDT,
-                    'take_profit_2': current_price - self.config.TAKE_PROFIT_2_USDT,
+                    'stop_loss': current_price * (1 + stop_loss_pct / 100),
+                    'take_profit_1': current_price - tp1,
+                    'take_profit_2': current_price - tp2,
                     'strategy': 'aggressive_rejection',
                     'reason': f'Rejection from BB upper at {bb_upper[-1]:.4f}'
                 }
@@ -158,14 +168,19 @@ class ShortStrategies:
                 
                 position_size = self._calculate_position_size(symbol, current_price)
                 
+                # Get config values based on trading mode
+                stop_loss_pct = getattr(self.config, 'FUTURES_STOP_LOSS_PERCENT', getattr(self.config, 'SPOT_STOP_LOSS_PERCENT', 2.0))
+                tp1 = getattr(self.config, 'FUTURES_TAKE_PROFIT_1_USDT', getattr(self.config, 'TAKE_PROFIT_1_USDT', 2.0))
+                tp2 = getattr(self.config, 'FUTURES_TAKE_PROFIT_2_USDT', getattr(self.config, 'TAKE_PROFIT_2_USDT', 3.5))
+                
                 return {
                     'action': 'SELL',
                     'symbol': symbol,
                     'entry_price': current_price,
                     'position_size': position_size,
-                    'stop_loss': current_price * (1 + self.config.STOP_LOSS_PERCENT / 100),
-                    'take_profit_1': current_price - self.config.TAKE_PROFIT_1_USDT,
-                    'take_profit_2': current_price - self.config.TAKE_PROFIT_2_USDT,
+                    'stop_loss': current_price * (1 + stop_loss_pct / 100),
+                    'take_profit_1': current_price - tp1,
+                    'take_profit_2': current_price - tp2,
                     'strategy': 'aggressive_overbought',
                     'reason': f'Volatility scalp with expanding BB down'
                 }
@@ -202,7 +217,8 @@ class ShortStrategies:
             return actions
         
         # Check take profit 1 (2 USDT)
-        if current_profit_usdt >= self.config.TAKE_PROFIT_1_USDT and not position.get('tp1_hit', False):
+        tp1_threshold = getattr(self.config, 'FUTURES_TAKE_PROFIT_1_USDT', getattr(self.config, 'TAKE_PROFIT_1_USDT', 2.0))
+        if current_profit_usdt >= tp1_threshold and not position.get('tp1_hit', False):
             actions['close_partial'] = True
             actions['close_percent'] = 50
             actions['reason'] = 'Take profit 1 reached (2 USDT)'
@@ -210,13 +226,15 @@ class ShortStrategies:
             return actions
         
         # Check take profit 2 (3-4 USDT)
-        if current_profit_usdt >= self.config.TAKE_PROFIT_2_USDT:
+        tp2_threshold = getattr(self.config, 'FUTURES_TAKE_PROFIT_2_USDT', getattr(self.config, 'TAKE_PROFIT_2_USDT', 3.5))
+        if current_profit_usdt >= tp2_threshold:
             actions['close'] = True
             actions['reason'] = 'Take profit 2 reached (3-4 USDT)'
             return actions
         
         # Trailing stop: move to breakeven after +1.5 USDT profit
-        if current_profit_usdt >= self.config.TRAILING_STOP_ACTIVATION_USDT:
+        trailing_activation = getattr(self.config, 'FUTURES_TRAILING_STOP_ACTIVATION_USDT', getattr(self.config, 'TRAILING_STOP_ACTIVATION_USDT', 1.5))
+        if current_profit_usdt >= trailing_activation:
             if position['stop_loss'] > entry_price:
                 actions['adjust_stop_loss'] = True
                 actions['new_stop_loss'] = entry_price * 0.999  # Slightly below entry
@@ -252,7 +270,8 @@ class ShortStrategies:
         
         price_change = abs(current_price - position['entry_price']) / position['entry_price']
         
-        if elapsed_minutes > self.config.TIMEOUT_NO_MOVEMENT_MINUTES and price_change < 0.001:
+        timeout_minutes = getattr(self.config, 'FUTURES_TIMEOUT_NO_MOVEMENT_MINUTES', getattr(self.config, 'SPOT_TIMEOUT_NO_MOVEMENT_MINUTES', getattr(self.config, 'TIMEOUT_NO_MOVEMENT_MINUTES', 7)))
+        if elapsed_minutes > timeout_minutes and price_change < 0.001:
             return True
         
         return False
