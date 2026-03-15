@@ -626,8 +626,8 @@ class MarketAnalyzer:
         atr = np.convolve(tr, np.ones(period)/period, mode='valid')
         
         # Add small epsilon to prevent division by zero
-        di_plus = 100 * np.convolve(dm_plus, np.ones(period)/period, mode='valid') / (atr + 1e-10)
-        di_minus = 100 * np.convolve(dm_minus, np.ones(period)/period, mode='valid') / (atr + 1e-10)
+        di_plus = 100 * np.convolve(dm_plus, np.ones(period)/period, mode='valid') / (atr + np.float64(1e-10))
+        di_minus = 100 * np.convolve(dm_minus, np.ones(period)/period, mode='valid') / (atr + np.float64(1e-10))
         
         dx = 100 * np.abs(di_plus - di_minus) / (di_plus + di_minus + 1e-10)
         adx = np.convolve(dx, np.ones(period)/period, mode='valid')
@@ -653,7 +653,7 @@ class MarketAnalyzer:
         avg_gains = np.convolve(gains, np.ones(period)/period, mode='valid')
         avg_losses = np.convolve(losses, np.ones(period)/period, mode='valid')
         
-        rs = avg_gains / (avg_losses + 1e-10)
+        rs = avg_gains / (avg_losses + np.float64(1e-10))
         rsi = 100 - (100 / (1 + rs))
         
         return rsi
