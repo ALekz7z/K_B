@@ -73,8 +73,18 @@ RANGE_PHASE_MAX_ADX = 20
 RANGE_PHASE_PRICE_DEVIATION = 0.02  # ±2% from EMA200
 RANGE_PHASE_MACD_THRESHOLD = 0.5
 
-# Coin Selection Filters
-MIN_VOLUME_24H_USDT = 50000000  # Minimum 24h volume
+# Coin Selection Filters - FUTURES (balance >= 500 USDT)
+FUTURES_MIN_VOLUME_24H_USDT = 10000000  # Minimum 10M USDT for futures (more lenient)
+FUTURES_MIN_VOLATILITY_24H = 0.02  # Minimum 2% change for futures
+FUTURES_MAX_VOLATILITY_24H = 0.15  # Maximum 15% change for futures (higher volatility accepted)
+
+# Coin Selection Filters - SPOT (balance < 500 USDT)
+SPOT_MIN_VOLUME_24H_USDT = 50000000  # Minimum 50M USDT for spot
+SPOT_MIN_VOLATILITY_24H = 0.03  # Minimum 3% change for spot
+SPOT_MAX_VOLATILITY_24H = 0.08  # Maximum 8% change for spot
+
+# General filters (used if mode-specific not available)
+MIN_VOLUME_24H_USDT = 50000000  # Default: 50M USDT
 MAX_SPREAD_PERCENT = 0.1  # Maximum bid-ask spread
 MIN_VOLATILITY_24H = 0.03  # Minimum 3% change
 MAX_VOLATILITY_24H = 0.08  # Maximum 8% change

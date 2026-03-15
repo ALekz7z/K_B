@@ -61,6 +61,9 @@ class CryptoTradingBot:
         self.risk_manager = RiskManager()
         self.risk_manager.update_balance(initial_balance)
         
+        # Pass trading mode to config for analyzer to use
+        self.config.trading_mode = self.risk_manager.trading_mode
+        
         # Pass wrapper functions to analyzer for API compatibility
         self.analyzer = MarketAnalyzer(
             self.client, 
