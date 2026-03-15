@@ -129,13 +129,13 @@ class CryptoTradingBot:
         import numpy as np
         
         class MockClient:
-            def get_kline(self, category, symbol, interval, limit):
+            def get_kline(self, category=None, symbol=None, interval=None, limit=None):
                 # Generate realistic mock OHLCV data (pybit v5 format)
-                base_price = 50000 if "BTC" in symbol else 3000 if "ETH" in symbol else 300
+                base_price = 50000 if symbol and "BTC" in str(symbol) else 3000 if symbol and "ETH" in str(symbol) else 300
                 data = {"retCode": 0, "retMsg": "OK", "list": []}
                 
                 current_price = base_price
-                for i in range(limit):
+                for i in range(limit if limit else 100):
                     change = np.random.randn() * 0.01  # 1% volatility
                     open_price = current_price
                     close_price = open_price * (1 + change)
@@ -143,7 +143,7 @@ class CryptoTradingBot:
                     low_price = min(open_price, close_price) * (1 - abs(np.random.randn() * 0.005))
                     
                     # Pybit v5 format: [timestamp, open, high, low, close, volume]
-                    timestamp = int((time.time() - (limit - i) * 300) * 1000)  # ms
+                    timestamp = int((time.time() - (limit if limit else 100 - i) * 300) * 1000)  # ms
                     data["list"].append([
                         str(timestamp),
                         str(open_price),
@@ -156,9 +156,9 @@ class CryptoTradingBot:
                 
                 return data
             
-            def get_tickers(self, category, symbol):
+            def get_tickers(self, category=None, symbol=None):
                 # Generate mock ticker data (pybit v5 format)
-                base_price = 50000 if "BTC" in symbol else 3000 if "ETH" in symbol else 300
+                base_price = 50000 if symbol and "BTC" in str(symbol) else 3000 if symbol and "ETH" in str(symbol) else 300
                 last_price = base_price * (1 + np.random.randn() * 0.001)
                 
                 return {
