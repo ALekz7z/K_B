@@ -24,13 +24,14 @@ class MarketAnalyzer:
     Selects top coins for trading based on multiple filters.
     """
     
-    def __init__(self, bybit_client, config, get_ohlcv_func=None, get_ticker_func=None):
+    def __init__(self, bybit_client, config, get_ohlcv_func=None, get_ticker_func=None, get_orderbook_func=None):
         self.client = bybit_client
         self.config = config
         # Use wrapper functions if provided (for compatibility with different API versions)
         # Default to None - will be set by main bot if not provided
         self._get_ohlcv = get_ohlcv_func
         self._get_ticker = get_ticker_func
+        self._get_orderbook = get_orderbook_func
         self.adaptive_params = {
             'ema_period': 50,
             'adx_threshold': 25,
@@ -344,7 +345,12 @@ class MarketAnalyzer:
     def _check_volatility(self, symbol: str) -> Tuple[bool, Dict]:
         """Check volatility filter: 24h change between 3-8%, ATR > 0.5%"""
         try:
-            ohlcv = self.client.get_ohlcv(symbol, "1d", limit=2)
+            # Use wrapper function for API compatibility
+            if self._get_ohlcv is None:
+                logger.error(f"No OHLCV function available for {symbol}")
+                return False, {'score': 0}
+            
+            ohlcv = self._get_ohlcv(symbol, "1d", limit=2)
             if len(ohlcv) < 2:
                 return False, {'score': 0}
             
@@ -377,9 +383,14 @@ class MarketAnalyzer:
     def _check_correlation(self, symbol: str) -> Tuple[bool, Dict]:
         """Check correlation with BTC: between 0.3 and 0.8"""
         try:
+            # Use wrapper function for API compatibility
+            if self._get_ohlcv is None:
+                logger.error(f"No OHLCV function available for {symbol}")
+                return False, {'score': 0}
+            
             # Get price data for symbol and BTC
-            symbol_ohlcv = self.client.get_ohlcv(symbol, "1h", limit=24)
-            btc_ohlcv = self.client.get_ohlcv("BTCUSDT", "1h", limit=24)
+            symbol_ohlcv = self._get_ohlcv(symbol, "1h", limit=24)
+            btc_ohlcv = self._get_ohlcv("BTCUSDT", "1h", limit=24)
             
             if len(symbol_ohlcv) < 24 or len(btc_ohlcv) < 24:
                 return False, {'score': 0}
@@ -412,17 +423,12 @@ class MarketAnalyzer:
     def _check_orderbook(self, symbol: str) -> Tuple[bool, Dict]:
         """Analyze orderbook depth and detect large walls"""
         try:
-            # Determine category based on trading mode (if available)
-            try:
-                # Try new API signature with category parameter
-                if hasattr(self, 'config') and hasattr(self.config, 'trading_mode'):
-                    category = "spot" if self.config.trading_mode.value == "SPOT" else "linear"
-                else:
-                    category = "linear"
-                orderbook = self.client.get_orderbook(category=category, symbol=symbol, depth=5)
-            except TypeError:
-                # Fallback to old signature without category
-                orderbook = self.client.get_orderbook(symbol, depth=5)
+            # Use wrapper function for API compatibility
+            if self._get_orderbook is None:
+                logger.error(f"No orderbook function available for {symbol}")
+                return False, {'score': 0}
+            
+            orderbook = self._get_orderbook(symbol, depth=5)
             
             bids = orderbook.get('bids', [])
             asks = orderbook.get('asks', [])
@@ -456,7 +462,12 @@ class MarketAnalyzer:
     def _check_technical(self, symbol: str) -> Tuple[bool, Dict]:
         """Check technical conditions: RSI 30-70, price within Bollinger Bands"""
         try:
-            ohlcv = self.client.get_ohlcv(symbol, "5m", limit=50)
+            # Use wrapper function for API compatibility
+            if self._get_ohlcv is None:
+                logger.error(f"No OHLCV function available for {symbol}")
+                return False, {'score': 0}
+            
+            ohlcv = self._get_ohlcv(symbol, "5m", limit=50)
             if len(ohlcv) < 50:
                 return False, {'score': 0}
             
