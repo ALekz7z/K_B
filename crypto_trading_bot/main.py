@@ -915,7 +915,8 @@ class CryptoTradingBot:
                     logger.debug(f"Checking SHORT strategies for {symbol}")
                     signal = self._check_short_strategies(symbol, ohlcv)
                     if signal:
-                        logger.info(f"✓ SHORT signal found for {symbol}: {signal.get('strategy', 'unknown')} @ {current_price:.6f}")
+                        strategy_name = signal.get('strategy', 'unknown')
+                        logger.info(f"✓ SHORT signal found for {symbol}: {strategy_name} @ {current_price:.6f}")
                     else:
                         logger.debug(f"No SHORT signal for {symbol}")
                 else:
@@ -924,7 +925,8 @@ class CryptoTradingBot:
                 logger.debug(f"Checking RANGE strategies for {symbol}")
                 signal = self._check_range_strategies(symbol, ohlcv)
                 if signal:
-                    logger.info(f"✓ RANGE signal found for {symbol}: {signal.get('strategy', 'unknown')} @ {current_price:.6f}")
+                    strategy_name = signal.get('strategy', 'unknown')
+                    logger.info(f"✓ RANGE signal found for {symbol}: {strategy_name} @ {current_price:.6f}")
                 else:
                     logger.debug(f"No RANGE signal for {symbol}")
             
