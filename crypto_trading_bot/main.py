@@ -257,10 +257,47 @@ class CryptoTradingBot:
                     }
                 }
             
-            def get_balance(self):
-                return {"retCode": 0, "retMsg": "OK", "balance": 100.0}
+            def get_balance(self, accountType=None):
+                # Mock balance for testing without API keys
+                return {"retCode": 0, "retMsg": "OK", "result": {"list": [{"coin": "USDT", "walletBalance": "100.0"}]}}
+            
+            def get_wallet_balance(self, accountType=None):
+                # Mock wallet balance for _get_real_balance method
+                return {"retCode": 0, "retMsg": "OK", "result": {"list": [{"coin": [{"coin": "USDT", "walletBalance": "100.0"}], "totalEquity": "100.0"}]}}
         
         return MockClient()
+    
+    def _get_real_balance(self) -> float:
+        """Fetch real balance from Bybit API"""
+        try:
+            # For unified margin account, use wallet_balance endpoint
+            response = self.client.get_wallet_balance(accountType="UNIFIED")
+            
+            if response.get("retCode") == 0:
+                result = response.get("result", {})
+                coin_list = result.get("list", [])
+                
+                for coin_data in coin_list:
+                    coins = coin_data.get("coin", [])
+                    for c in coins:
+                        if c.get("coin") == "USDT":
+                            wallet_balance = float(c.get("walletBalance", "0"))
+                            logger.info(f"Real USDT balance from Bybit: {wallet_balance}")
+                            return wallet_balance
+                
+                # If USDT not found, try to get total equity
+                for coin_data in coin_list:
+                    total_equity = float(coin_data.get("totalEquity", "0"))
+                    if total_equity > 0:
+                        logger.info(f"Total equity from Bybit: {total_equity} USDT")
+                        return total_equity
+            
+            logger.warning(f"Could not fetch balance: {response}")
+            return 100.0
+            
+        except Exception as e:
+            logger.error(f"Error fetching real balance: {e}")
+            return 100.0
 
     def _convert_timeframe(self, timeframe: str) -> str:
         """Convert timeframe to Bybit v5 format (numeric string without 'm')"""
@@ -897,17 +934,29 @@ class Config:
 
 
 if __name__ == "__main__":
-    # Example: Start with 100 USDT (will use SPOT mode)
-    # Change to 500+ USDT to enable FUTURES mode
-    initial_balance = 100.0
-    
+    # Get real balance from Bybit account at startup
     print(f"\n{'='*60}")
     print(f"CRYPTO TRADING BOT - STARTING")
     print(f"{'='*60}")
+    
+    # Initialize bot temporarily to fetch real balance
+    temp_bot = CryptoTradingBot(initial_balance=100.0)
+    try:
+        real_balance = temp_bot._get_real_balance()
+        logger.info(f"Real balance fetched from Bybit: {real_balance} USDT")
+    except Exception as e:
+        logger.warning(f"Could not fetch real balance: {e}. Using default 100.0 USDT")
+        real_balance = 100.0
+    
+    initial_balance = real_balance
+    
     print(f"Initial Balance: {initial_balance} USDT")
     print(f"Mode Threshold: {BALANCE_THRESHOLD_USDT} USDT")
     print(f"Expected Mode: {'FUTURES' if initial_balance >= BALANCE_THRESHOLD_USDT else 'SPOT'}")
     print(f"{'='*60}\n")
+    
+    # Stop temporary bot and create new one with real balance
+    temp_bot.stop()
     
     bot = CryptoTradingBot(initial_balance=initial_balance)
     try:
