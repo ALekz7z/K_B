@@ -400,6 +400,33 @@ class CryptoTradingBot:
             logger.error(f"Error getting ticker for {symbol}: {error_msg}")
             return {'lastPrice': 0.0, 'bid1Price': 0.0, 'ask1Price': 0.0, 'volume24h': 0.0}
 
+    def _fetch_symbols_from_bybit_with_fallback(self):
+        """Fetch symbols from Bybit with fallback to hardcoded list if TESTNET has no volume data"""
+        try:
+            # First try to fetch from Bybit
+            symbols = self.analyzer.fetch_symbols_from_bybit()
+            
+            if symbols and len(symbols) > 0:
+                logger.info(f"Successfully fetched {len(symbols)} symbols from Bybit")
+                return symbols
+            
+            # If no symbols returned (TESTNET limitation), use fallback list
+            logger.warning("No symbols with volume data from Bybit (TESTNET limitation), using fallback list")
+            fallback_symbols = [
+                "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
+                "ADAUSDT", "DOGEUSDT", "TRXUSDT", "DOTUSDT", "MATICUSDT",
+                "LTCUSDT", "SHIBUSDT", "AVAXUSDT", "UNIUSDT", "LINKUSDT",
+                "ATOMUSDT", "ETCUSDT", "XLMUSDT", "BCHUSDT", "FILUSDT",
+                "APTUSDT", "ARBUSDT", "OPUSDT", "NEARUSDT", "VETUSDT",
+                "ICPUSDT", "ALGOUSDT", "QNTUSDT", "GRTUSDT", "SANDUSDT"
+            ]
+            limit = getattr(self.config, 'TOP_SYMBOLS_TO_FETCH', 30)
+            return fallback_symbols[:limit]
+            
+        except Exception as e:
+            logger.error(f"Error fetching symbols, using fallback: {e}")
+            return ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
+
     def start(self):
         logger.info("Starting crypto trading bot...")
         self.state = TradingState.ACTIVE
@@ -474,10 +501,7 @@ class CryptoTradingBot:
         
         # Fetch symbols dynamically from Bybit if enabled
         if getattr(self.config, 'FETCH_SYMBOLS_ENABLED', False):
-            symbols = self.analyzer.fetch_symbols_from_bybit()
-            if not symbols:
-                logger.warning("Failed to fetch symbols from Bybit, using default list")
-                symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
+            symbols = self._fetch_symbols_from_bybit_with_fallback()
         else:
             # Use hardcoded symbol list if dynamic fetching is disabled
             symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]

@@ -112,6 +112,11 @@ class MarketAnalyzer:
                         turnover_24h = 0
                         price_change_pct = 0.0
                     
+                    # Skip symbols with zero volume (likely not available on TESTNET)
+                    if volume_24h == 0:
+                        logger.debug(f"Skipping {symbol} - zero volume (not available on TESTNET)")
+                        continue
+                    
                     filtered_symbols.append({
                         'symbol': symbol,
                         'lastPrice': last_price,
