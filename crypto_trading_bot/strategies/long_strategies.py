@@ -234,8 +234,14 @@ class LongStrategies:
         # Get account balance (placeholder - would call API in production)
         balance = 1000  # USDT
         
+        # Determine correct attribute based on trading mode
+        if hasattr(self.config, 'trading_mode') and self.config.trading_mode == 'FUTURES':
+            position_size_percent = getattr(self.config, 'FUTURES_POSITION_SIZE_PERCENT', 2.5)
+        else:
+            position_size_percent = getattr(self.config, 'SPOT_POSITION_SIZE_PERCENT', 12.0)
+        
         # Position size = 2-3% of deposit
-        position_value = balance * self.config.position_size_percent / 100
+        position_value = balance * position_size_percent / 100
         
         # Calculate quantity
         quantity = position_value / entry_price
