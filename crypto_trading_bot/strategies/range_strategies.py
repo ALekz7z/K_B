@@ -49,14 +49,28 @@ class RangeStrategies:
                 logger.info(f"[AGGRESSIVE RANGE BUY] {symbol}: Range buy at {current_price:.4f} (BB lower: {bb_lower[-1]:.4f})")
                 position_size = self._calculate_position_size(symbol, current_price)
                 
+                # Get stop loss percent based on trading mode
+                sl_percent = getattr(self.config, 'FUTURES_STOP_LOSS_PERCENT', 2.0) if hasattr(self.config, 'trading_mode') and self.config.trading_mode == 'FUTURES' else getattr(self.config, 'SPOT_STOP_LOSS_PERCENT', 4.0)
+                
+                # Get take profit values based on trading mode
+                if hasattr(self.config, 'trading_mode') and self.config.trading_mode == 'FUTURES':
+                    tp1 = getattr(self.config, 'FUTURES_TAKE_PROFIT_1_USDT', 2.0)
+                    tp2 = getattr(self.config, 'FUTURES_TAKE_PROFIT_2_USDT', 3.5)
+                else:
+                    # For SPOT, use percentage-based take profit
+                    tp1_pct = getattr(self.config, 'SPOT_TAKE_PROFIT_1_PERCENT', 1.5)
+                    tp2_pct = getattr(self.config, 'SPOT_TAKE_PROFIT_2_PERCENT', 3.0)
+                    tp1 = current_price * tp1_pct / 100
+                    tp2 = current_price * tp2_pct / 100
+
                 return {
                     'action': 'BUY',
                     'symbol': symbol,
                     'entry_price': current_price,
                     'position_size': position_size,
-                    'stop_loss': current_price * (1 - self.config.STOP_LOSS_PERCENT / 100),
-                    'take_profit_1': current_price + self.config.TAKE_PROFIT_1_USDT,
-                    'take_profit_2': current_price + self.config.TAKE_PROFIT_2_USDT,
+                    'stop_loss': current_price * (1 - sl_percent / 100),
+                    'take_profit_1': current_price + tp1,
+                    'take_profit_2': current_price + tp2,
                     'strategy': 'aggressive_range_buy',
                     'reason': f'Range buy at BB lower {bb_lower[-1]:.4f}'
                 }
@@ -66,14 +80,28 @@ class RangeStrategies:
                 logger.info(f"[AGGRESSIVE RANGE SELL] {symbol}: Range sell at {current_price:.4f} (BB upper: {bb_upper[-1]:.4f})")
                 position_size = self._calculate_position_size(symbol, current_price)
                 
+                # Get stop loss percent based on trading mode
+                sl_percent = getattr(self.config, 'FUTURES_STOP_LOSS_PERCENT', 2.0) if hasattr(self.config, 'trading_mode') and self.config.trading_mode == 'FUTURES' else getattr(self.config, 'SPOT_STOP_LOSS_PERCENT', 4.0)
+                
+                # Get take profit values based on trading mode
+                if hasattr(self.config, 'trading_mode') and self.config.trading_mode == 'FUTURES':
+                    tp1 = getattr(self.config, 'FUTURES_TAKE_PROFIT_1_USDT', 2.0)
+                    tp2 = getattr(self.config, 'FUTURES_TAKE_PROFIT_2_USDT', 3.5)
+                else:
+                    # For SPOT, use percentage-based take profit
+                    tp1_pct = getattr(self.config, 'SPOT_TAKE_PROFIT_1_PERCENT', 1.5)
+                    tp2_pct = getattr(self.config, 'SPOT_TAKE_PROFIT_2_PERCENT', 3.0)
+                    tp1 = current_price * tp1_pct / 100
+                    tp2 = current_price * tp2_pct / 100
+
                 return {
                     'action': 'SELL',
                     'symbol': symbol,
                     'entry_price': current_price,
                     'position_size': position_size,
-                    'stop_loss': current_price * (1 + self.config.STOP_LOSS_PERCENT / 100),
-                    'take_profit_1': current_price - self.config.TAKE_PROFIT_1_USDT,
-                    'take_profit_2': current_price - self.config.TAKE_PROFIT_2_USDT,
+                    'stop_loss': current_price * (1 + sl_percent / 100),
+                    'take_profit_1': current_price - tp1,
+                    'take_profit_2': current_price - tp2,
                     'strategy': 'aggressive_range_sell',
                     'reason': f'Range sell at BB upper {bb_upper[-1]:.4f}'
                 }
@@ -106,6 +134,18 @@ class RangeStrategies:
             
             current_price = prices[-1]
             
+            # Get stop loss percent and take profit values based on trading mode
+            sl_percent = getattr(self.config, 'FUTURES_STOP_LOSS_PERCENT', 2.0) if hasattr(self.config, 'trading_mode') and self.config.trading_mode == 'FUTURES' else getattr(self.config, 'SPOT_STOP_LOSS_PERCENT', 4.0)
+            
+            if hasattr(self.config, 'trading_mode') and self.config.trading_mode == 'FUTURES':
+                tp1 = getattr(self.config, 'FUTURES_TAKE_PROFIT_1_USDT', 2.0)
+                tp2 = getattr(self.config, 'FUTURES_TAKE_PROFIT_2_USDT', 3.5)
+            else:
+                tp1_pct = getattr(self.config, 'SPOT_TAKE_PROFIT_1_PERCENT', 1.5)
+                tp2_pct = getattr(self.config, 'SPOT_TAKE_PROFIT_2_PERCENT', 3.0)
+                tp1 = current_price * tp1_pct / 100
+                tp2 = current_price * tp2_pct / 100
+            
             # Check for BUY signal - price significantly below middle
             if current_price < bb_middle[-1] * 0.995:
                 logger.info(f"[AGGRESSIVE RANGE BUY] {symbol}: Mean reversion buy at {current_price:.4f}")
@@ -116,9 +156,9 @@ class RangeStrategies:
                     'symbol': symbol,
                     'entry_price': current_price,
                     'position_size': position_size,
-                    'stop_loss': current_price * (1 - self.config.STOP_LOSS_PERCENT / 100),
-                    'take_profit_1': current_price + self.config.TAKE_PROFIT_1_USDT,
-                    'take_profit_2': current_price + self.config.TAKE_PROFIT_2_USDT,
+                    'stop_loss': current_price * (1 - sl_percent / 100),
+                    'take_profit_1': current_price + tp1,
+                    'take_profit_2': current_price + tp2,
                     'strategy': 'aggressive_mean_reversion_buy',
                     'reason': f'Mean reversion buy below middle BB'
                 }
@@ -133,9 +173,9 @@ class RangeStrategies:
                     'symbol': symbol,
                     'entry_price': current_price,
                     'position_size': position_size,
-                    'stop_loss': current_price * (1 + self.config.STOP_LOSS_PERCENT / 100),
-                    'take_profit_1': current_price - self.config.TAKE_PROFIT_1_USDT,
-                    'take_profit_2': current_price - self.config.TAKE_PROFIT_2_USDT,
+                    'stop_loss': current_price * (1 + sl_percent / 100),
+                    'take_profit_1': current_price - tp1,
+                    'take_profit_2': current_price - tp2,
                     'strategy': 'aggressive_mean_reversion_sell',
                     'reason': f'Mean reversion sell above middle BB'
                 }
@@ -166,6 +206,18 @@ class RangeStrategies:
             current_price = prices[-1]
             avg_price = np.mean(prices[-10:])
             
+            # Get stop loss percent and take profit values based on trading mode
+            sl_percent = getattr(self.config, 'FUTURES_STOP_LOSS_PERCENT', 2.0) if hasattr(self.config, 'trading_mode') and self.config.trading_mode == 'FUTURES' else getattr(self.config, 'SPOT_STOP_LOSS_PERCENT', 4.0)
+            
+            if hasattr(self.config, 'trading_mode') and self.config.trading_mode == 'FUTURES':
+                tp1 = getattr(self.config, 'FUTURES_TAKE_PROFIT_1_USDT', 2.0)
+                tp2 = getattr(self.config, 'FUTURES_TAKE_PROFIT_2_USDT', 3.5)
+            else:
+                tp1_pct = getattr(self.config, 'SPOT_TAKE_PROFIT_1_PERCENT', 1.5)
+                tp2_pct = getattr(self.config, 'SPOT_TAKE_PROFIT_2_PERCENT', 3.0)
+                tp1 = current_price * tp1_pct / 100
+                tp2 = current_price * tp2_pct / 100
+            
             # Check for BUY signal - price dropped below average (potential bounce)
             if current_price < avg_price * 0.995:
                 logger.info(f"[AGGRESSIVE RANGE BUY] {symbol}: Pattern scalp buy at {current_price:.4f}")
@@ -176,9 +228,9 @@ class RangeStrategies:
                     'symbol': symbol,
                     'entry_price': current_price,
                     'position_size': position_size,
-                    'stop_loss': current_price * (1 - self.config.STOP_LOSS_PERCENT / 100),
-                    'take_profit_1': current_price + self.config.TAKE_PROFIT_1_USDT,
-                    'take_profit_2': current_price + self.config.TAKE_PROFIT_2_USDT,
+                    'stop_loss': current_price * (1 - sl_percent / 100),
+                    'take_profit_1': current_price + tp1,
+                    'take_profit_2': current_price + tp2,
                     'strategy': 'aggressive_pattern_buy',
                     'reason': 'Quick bounce scalp'
                 }
@@ -193,9 +245,9 @@ class RangeStrategies:
                     'symbol': symbol,
                     'entry_price': current_price,
                     'position_size': position_size,
-                    'stop_loss': current_price * (1 + self.config.STOP_LOSS_PERCENT / 100),
-                    'take_profit_1': current_price - self.config.TAKE_PROFIT_1_USDT,
-                    'take_profit_2': current_price - self.config.TAKE_PROFIT_2_USDT,
+                    'stop_loss': current_price * (1 + sl_percent / 100),
+                    'take_profit_1': current_price - tp1,
+                    'take_profit_2': current_price - tp2,
                     'strategy': 'aggressive_pattern_sell',
                     'reason': 'Quick drop scalp'
                 }
@@ -237,21 +289,24 @@ class RangeStrategies:
             return actions
         
         # Check take profit 1 (2 USDT)
-        if current_profit_usdt >= self.config.TAKE_PROFIT_1_USDT and not position.get('tp1_hit', False):
+        tp1_threshold = getattr(self.config, 'FUTURES_TAKE_PROFIT_1_USDT', 2.0) if hasattr(self.config, 'trading_mode') and self.config.trading_mode == 'FUTURES' else getattr(self.config, 'SPOT_TAKE_PROFIT_1_PERCENT', 1.5)
+        if current_profit_usdt >= tp1_threshold and not position.get('tp1_hit', False):
             actions['close_partial'] = True
             actions['close_percent'] = 50
-            actions['reason'] = 'Take profit 1 reached (2 USDT)'
+            actions['reason'] = f'Take profit 1 reached ({tp1_threshold})'
             position['tp1_hit'] = True
             return actions
         
         # Check take profit 2 (3-4 USDT)
-        if current_profit_usdt >= self.config.TAKE_PROFIT_2_USDT:
+        tp2_threshold = getattr(self.config, 'FUTURES_TAKE_PROFIT_2_USDT', 3.5) if hasattr(self.config, 'trading_mode') and self.config.trading_mode == 'FUTURES' else getattr(self.config, 'SPOT_TAKE_PROFIT_2_PERCENT', 3.0)
+        if current_profit_usdt >= tp2_threshold:
             actions['close'] = True
-            actions['reason'] = 'Take profit 2 reached (3-4 USDT)'
+            actions['reason'] = f'Take profit 2 reached ({tp2_threshold})'
             return actions
         
         # Trailing stop: move to breakeven after +1.5 USDT profit
-        if current_profit_usdt >= self.config.TRAILING_STOP_ACTIVATION_USDT:
+        trailing_activation = getattr(self.config, 'FUTURES_TRAILING_STOP_ACTIVATION_USDT', 1.5) if hasattr(self.config, 'trading_mode') and self.config.trading_mode == 'FUTURES' else getattr(self.config, 'SPOT_TRAILING_STOP_ACTIVATION_PERCENT', 2.0)
+        if current_profit_usdt >= trailing_activation:
             if direction == 'LONG' and position['stop_loss'] < entry_price:
                 actions['adjust_stop_loss'] = True
                 actions['new_stop_loss'] = entry_price * 1.001
