@@ -904,7 +904,7 @@ class CryptoTradingBot:
             if self.current_phase == MarketPhase.LONG:
                 logger.debug(f"Checking LONG strategies for {symbol}")
                 signal = self._check_long_strategies(symbol, ohlcv)
-                if signal:
+                if signal and isinstance(signal, dict):
                     strategy_name = signal.get('strategy', 'unknown')
                     logger.info(f"✓ LONG signal found for {symbol}: {strategy_name} @ {current_price:.6f}")
                 else:
@@ -914,7 +914,7 @@ class CryptoTradingBot:
                 if params['allow_short']:
                     logger.debug(f"Checking SHORT strategies for {symbol}")
                     signal = self._check_short_strategies(symbol, ohlcv)
-                    if signal:
+                    if signal and isinstance(signal, dict):
                         strategy_name = signal.get('strategy', 'unknown')
                         logger.info(f"✓ SHORT signal found for {symbol}: {strategy_name} @ {current_price:.6f}")
                     else:
@@ -924,13 +924,13 @@ class CryptoTradingBot:
             elif self.current_phase == MarketPhase.RANGE:
                 logger.debug(f"Checking RANGE strategies for {symbol}")
                 signal = self._check_range_strategies(symbol, ohlcv)
-                if signal:
+                if signal and isinstance(signal, dict):
                     strategy_name = signal.get('strategy', 'unknown')
                     logger.info(f"✓ RANGE signal found for {symbol}: {strategy_name} @ {current_price:.6f}")
                 else:
                     logger.debug(f"No RANGE signal for {symbol}")
             
-            if signal:
+            if signal and isinstance(signal, dict):
                 signals_found += 1
                 # Use risk manager to validate and open position
                 can_open, reason = self.risk_manager.can_open_trade(symbol, signal['action'])
@@ -951,19 +951,22 @@ class CryptoTradingBot:
     def _check_long_strategies(self, symbol, ohlcv):
         for s in [self.long_trader.check_breakout_strategy, self.long_trader.check_support_bounce_strategy, self.long_trader.check_volatility_scalping_strategy]:
             sig = s(symbol, ohlcv)
-            if sig: return sig
+            if sig and isinstance(sig, dict):
+                return sig
         return None
 
     def _check_short_strategies(self, symbol, ohlcv):
         for s in [self.short_trader.check_breakdown_strategy, self.short_trader.check_resistance_rejection_strategy, self.short_trader.check_overbought_scalping_strategy]:
             sig = s(symbol, ohlcv)
-            if sig: return sig
+            if sig and isinstance(sig, dict):
+                return sig
         return None
 
     def _check_range_strategies(self, symbol, ohlcv):
         for s in [self.range_trader.check_range_trading_strategy, self.range_trader.check_mean_reversion_strategy, self.range_trader.check_pattern_scalping_strategy]:
             sig = s(symbol, ohlcv)
-            if sig: return sig
+            if sig and isinstance(sig, dict):
+                return sig
         return None
 
     def _open_position(self, signal):
