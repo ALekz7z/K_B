@@ -371,12 +371,12 @@ class CryptoTradingBot:
             
             logger.debug(f"Requesting kline data for {symbol}: category={category}, interval={bybit_interval}, limit={limit}")
             
-            # For SPOT category, use string interval format directly (more reliable for spot)
-            # For LINEAR category, use numeric format
-            if category == "spot":
+            # For LINEAR (futures) category, always use string interval format
+            # For SPOT category, use numeric format first, then try string if needed
+            if category == "linear":
                 string_interval = self._get_string_interval(bybit_interval)
                 if string_interval and string_interval != bybit_interval:
-                    logger.debug(f"Using string interval format for spot: {string_interval}")
+                    logger.debug(f"Using string interval format for linear: {string_interval}")
                     bybit_interval = string_interval
             
             # Try first with the determined interval format
@@ -391,6 +391,7 @@ class CryptoTradingBot:
             if isinstance(response, dict) and response.get("retCode") != 0:
                 error_msg = response.get('retMsg', '')
                 ret_code = response.get("retCode")
+                logger.warning(f"API error for {symbol}: retCode={ret_code}, retMsg={error_msg}")
                 # Check for Invalid period error (ErrCode: 10001) or any period-related error
                 if 'Invalid period' in error_msg or 'period' in error_msg.lower() or ret_code == 10001:
                     logger.info(f"Interval '{bybit_interval}' not supported for {symbol}, trying alternative format...")
