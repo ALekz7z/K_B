@@ -318,7 +318,7 @@ class RiskManager:
         # Log mode change
         if old_mode != self.trading_mode:
             logger.warning(
-                f"TRADING MODE CHANGED: {old_mode.value} → {self.trading_mode.value} | "
+                f"TRADING MODE CHANGED: {old_mode.value} -> {self.trading_mode.value} | "
                 f"Balance: {balance:.2f} USDT (threshold: {BALANCE_THRESHOLD_USDT} USDT)"
             )
     
