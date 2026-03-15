@@ -173,7 +173,8 @@ class CryptoTradingBot:
                     }]
                 }
             
-            def get_orderbook(self, symbol, depth=5):
+            def get_orderbook(self, category="linear", symbol=None, depth=5):
+                # Support both old and new signature (with/without category)
                 base_price = 50000 if "BTC" in symbol else 3000 if "ETH" in symbol else 300
                 return {
                     "retCode": 0,
@@ -210,7 +211,7 @@ class CryptoTradingBot:
         except ValueError:
             return "5"  # Default fallback
     
-    def _get_ohlcv_data(self, symbol, timeframe="5m", limit=100):
+    def _get_ohlcv_data(self, symbol, timeframe="5m", limit=250):
         """Get OHLCV data from client (wrapper for pybit v5 compatibility)"""
         try:
             # Determine category based on trading mode
@@ -262,7 +263,7 @@ class CryptoTradingBot:
             return []
 
     def _get_ticker_price(self, symbol):
-        """Get current ticker price (wrapper for pybit v5 compatibility)"""
+        """Get current ticker price and full data (wrapper for pybit v5 compatibility)"""
         try:
             # Determine category based on trading mode
             category = "spot" if self.risk_manager.trading_mode.value == "SPOT" else "linear"
@@ -273,7 +274,7 @@ class CryptoTradingBot:
                 symbol=symbol
             )
             
-            # Extract price from response
+            # Extract full ticker data from response
             if isinstance(response, dict) and "retCode" in response:
                 if response["retCode"] != 0:
                     logger.error(f"Ticker API error for {symbol}: {response.get('retMsg', 'Unknown error')}")
@@ -281,20 +282,33 @@ class CryptoTradingBot:
                     
                 tickers_list = response.get("list", [])
                 if tickers_list and len(tickers_list) > 0:
-                    return float(tickers_list[0].get("lastPrice", 0))
+                    ticker_data = tickers_list[0]
+                    # Return full dictionary with all needed fields
+                    return {
+                        'lastPrice': float(ticker_data.get("lastPrice", 0)),
+                        'bid1Price': float(ticker_data.get("bid1Price", 0)),
+                        'ask1Price': float(ticker_data.get("ask1Price", 0)),
+                        'volume24h': float(ticker_data.get("volume24h", 0))
+                    }
                 return 0.0
             elif isinstance(response, dict):
-                # Mock client or old API format
-                return float(response.get("last_price", response.get("lastPrice", 0)))
+                # Mock client or old API format - return as dict
+                last_price = float(response.get("last_price", response.get("lastPrice", 0)))
+                return {
+                    'lastPrice': last_price,
+                    'bid1Price': float(response.get("bid1Price", last_price * 0.999)),
+                    'ask1Price': float(response.get("ask1Price", last_price * 1.001)),
+                    'volume24h': float(response.get("volume24h", 100000000))
+                }
             else:
                 logger.warning(f"Unexpected ticker response format for {symbol}")
-                return 0.0
+                return {'lastPrice': 0.0, 'bid1Price': 0.0, 'ask1Price': 0.0, 'volume24h': 0.0}
                 
         except Exception as e:
             # Convert exception to string safely, avoiding special characters
             error_msg = str(e).replace('→', '->').replace('\u2192', '->')
             logger.error(f"Error getting ticker for {symbol}: {error_msg}")
-            return 0.0
+            return {'lastPrice': 0.0, 'bid1Price': 0.0, 'ask1Price': 0.0, 'volume24h': 0.0}
 
     def start(self):
         logger.info("Starting crypto trading bot...")
