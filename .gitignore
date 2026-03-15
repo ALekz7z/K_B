@@ -1,14 +1,13 @@
-```
 # Compiled and build artifacts
 *.pyc
 __pycache__/
 *.o
 *.obj
-dist/
-build/
 *.so
-*.dylib
 *.dll
+*.exe
+*.class
+*.out
 
 # Dependencies
 .venv/
@@ -23,25 +22,27 @@ venv/
 *.swp
 *.swo
 
+# Coverage reports
+.coverage
+coverage/
+htmlcov/
+
 # Editors
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Coverage reports
-.coverage
-coverage/
-htmlcov/
+# Distribution / packaging
+dist/
+build/
+*.tar.gz
+*.zip
+*.whl
 
 # Python specific
 *.pyc
 __pycache__/
-*.pyo
-*.pyd
-.Python
-*.so
-.PyInstaller/
 .pytest_cache/
 .mypy_cache/
-```
+*.egg-info/

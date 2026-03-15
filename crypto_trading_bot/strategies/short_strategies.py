@@ -232,7 +232,7 @@ class ShortStrategies:
     def _calculate_position_size(self, symbol: str, entry_price: float) -> float:
         """Calculate position size based on risk parameters"""
         balance = 1000  # USDT
-        position_value = balance * self.config.POSITION_SIZE_PERCENT / 100
+        position_value = balance * self.config.position_size_percent / 100
         quantity = position_value / entry_price
         return quantity
     
