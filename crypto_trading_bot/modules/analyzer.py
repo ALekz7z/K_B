@@ -39,6 +39,115 @@ class MarketAnalyzer:
         }
         self.performance_history = []  # Track indicator performance
     
+    def fetch_symbols_from_bybit(self, category=None, quote_filter=None, min_price=None, sort_by=None, limit=None):
+        """
+        Fetch available trading symbols from Bybit API with filtering and sorting.
+        
+        Args:
+            category: Trading category ("spot" or "linear")
+            quote_filter: Filter by quote currency (e.g., "USDT")
+            min_price: Minimum price threshold
+            sort_by: Indicator to sort by ("volume24h", "price_change_pct", "turnover_rate")
+            limit: Maximum number of symbols to return (overrides TOP_SYMBOLS_TO_FETCH if specified)
+            
+        Returns:
+            List of symbol dictionaries sorted by the specified indicator
+        """
+        try:
+            # Use config defaults if not specified
+            category = category or getattr(self.config, 'SYMBOL_FETCH_CATEGORY', 'spot')
+            quote_filter = quote_filter or getattr(self.config, 'SYMBOL_FILTER_BY_QUOTE', 'USDT')
+            min_price = min_price if min_price is not None else getattr(self.config, 'MIN_SYMBOL_PRICE', 0.0001)
+            sort_by = sort_by or getattr(self.config, 'SORT_BY_INDICATOR', 'volume24h')
+            # Use provided limit, or config's TOP_SYMBOLS_TO_FETCH, or fallback to TOP_COINS_TO_SELECT
+            limit = limit or getattr(self.config, 'TOP_SYMBOLS_TO_FETCH', getattr(self.config, 'TOP_COINS_TO_SELECT', 30))
+            
+            logger.info(f"Fetching symbols from Bybit: category={category}, quote={quote_filter}, sort_by={sort_by}")
+            
+            # Fetch all tickers for the category
+            response = self.client.get_tickers(category=category)
+            
+            if isinstance(response, dict) and response.get("retCode") == 0:
+                result = response.get("result", {})
+                tickers_list = result.get("list", [])
+                
+                if not tickers_list:
+                    logger.warning("No tickers returned from Bybit API")
+                    return []
+                
+                # Filter and process symbols
+                filtered_symbols = []
+                for ticker in tickers_list:
+                    symbol = ticker.get("symbol", "")
+                    
+                    # Skip if symbol is None or empty
+                    if not symbol:
+                        continue
+                    
+                    # Filter by quote currency
+                    if quote_filter and not str(symbol).endswith(quote_filter):
+                        continue
+                    
+                    # Parse price and filter by minimum price
+                    try:
+                        last_price = float(ticker.get("lastPrice", 0))
+                        if last_price < min_price:
+                            continue
+                    except (ValueError, TypeError):
+                        continue
+                    
+                    # Parse volume and other metrics
+                    try:
+                        volume_24h = float(ticker.get("volume24h", 0))
+                        turnover_24h = float(ticker.get("turnover24h", 0))
+                        
+                        # Calculate price change percentage
+                        prev_price = float(ticker.get("prevPrice24h", last_price))
+                        if prev_price > 0:
+                            price_change_pct = ((last_price - prev_price) / prev_price) * 100
+                        else:
+                            price_change_pct = 0.0
+                    except (ValueError, TypeError):
+                        volume_24h = 0
+                        turnover_24h = 0
+                        price_change_pct = 0.0
+                    
+                    filtered_symbols.append({
+                        'symbol': symbol,
+                        'lastPrice': last_price,
+                        'volume24h': volume_24h,
+                        'turnover24h': turnover_24h,
+                        'price_change_pct': price_change_pct
+                    })
+                
+                # Sort by specified indicator
+                if sort_by == "volume24h":
+                    filtered_symbols.sort(key=lambda x: x['volume24h'], reverse=True)
+                elif sort_by == "price_change_pct":
+                    # Sort by absolute price change (most volatile first)
+                    filtered_symbols.sort(key=lambda x: abs(x['price_change_pct']), reverse=True)
+                elif sort_by == "turnover_rate":
+                    filtered_symbols.sort(key=lambda x: x['turnover24h'], reverse=True)
+                else:
+                    # Default: sort by volume
+                    filtered_symbols.sort(key=lambda x: x['volume24h'], reverse=True)
+                
+                # Limit the number of results
+                result_symbols = [s['symbol'] for s in filtered_symbols[:limit]]
+                
+                logger.info(f"Fetched {len(result_symbols)} symbols from Bybit (top {limit} by {sort_by})")
+                logger.debug(f"Top symbols: {result_symbols[:10]}")
+                
+                return result_symbols
+            else:
+                error_msg = response.get('retMsg', 'Unknown error') if isinstance(response, dict) else 'Invalid response'
+                logger.error(f"Failed to fetch symbols from Bybit: {error_msg}")
+                return []
+                
+        except Exception as e:
+            logger.error(f"Error fetching symbols from Bybit: {e}")
+            return []
+    
     def determine_market_phase(self, symbol: str, timeframe: str = "5m") -> MarketPhase:
         """
         Determine the current market phase using multiple indicators.

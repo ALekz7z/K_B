@@ -184,23 +184,62 @@ class CryptoTradingBot:
             
             def get_tickers(self, category=None, symbol=None):
                 # Generate mock ticker data (pybit v5 format with 'result' -> 'list')
-                base_price = 50000 if symbol and "BTC" in str(symbol) else 3000 if symbol and "ETH" in str(symbol) else 300
-                last_price = base_price * (1 + np.random.randn() * 0.001)
-                
-                return {
-                    "retCode": 0,
-                    "retMsg": "OK",
-                    "result": {
-                        "category": category or "spot",
-                        "list": [{
-                            "symbol": symbol,
+                # If symbol is None, return multiple mock tickers for testing dynamic fetching
+                if symbol is None:
+                    mock_tickers = []
+                    base_prices = {
+                        "BTCUSDT": 50000, "ETHUSDT": 3000, "BNBUSDT": 600,
+                        "SOLUSDT": 150, "XRPUSDT": 0.5, "ADAUSDT": 0.45,
+                        "DOGEUSDT": 0.08, "DOTUSDT": 7, "MATICUSDT": 0.8,
+                        "AVAXUSDT": 35, "LINKUSDT": 15, "UNIUSDT": 6,
+                        "ATOMUSDT": 9, "LTCUSDT": 70, "BCHUSDT": 250,
+                        "NEARUSDT": 3, "FILUSDT": 5, "APTUSDT": 8,
+                        "ARBUSDT": 1.2, "OPUSDT": 2.5, "INJUSDT": 25,
+                        "SUIUSDT": 1.5, "SEIUSDT": 0.4, "TIAUSDT": 7,
+                        "RUNEUSDT": 4, "FETUSDT": 1.2, "RENDERUSDT": 5,
+                        "GRTUSDT": 0.2, "IMXUSDT": 1.5, "STXUSDT": 1.8
+                    }
+                    for sym, base_price in base_prices.items():
+                        last_price = base_price * (1 + np.random.randn() * 0.001)
+                        mock_tickers.append({
+                            "symbol": sym,
                             "lastPrice": str(last_price),
                             "bid1Price": str(last_price * 0.999),
                             "ask1Price": str(last_price * 1.001),
-                            "volume24h": str(100000000)
-                        }]
+                            "volume24h": str(np.random.uniform(10000000, 500000000)),
+                            "turnover24h": str(np.random.uniform(50000000, 1000000000)),
+                            "prevPrice24h": str(base_price)
+                        })
+                    
+                    return {
+                        "retCode": 0,
+                        "retMsg": "OK",
+                        "result": {
+                            "category": category or "spot",
+                            "list": mock_tickers
+                        }
                     }
-                }
+                else:
+                    # Single symbol request
+                    base_price = 50000 if symbol and "BTC" in str(symbol) else 3000 if symbol and "ETH" in str(symbol) else 300
+                    last_price = base_price * (1 + np.random.randn() * 0.001)
+                    
+                    return {
+                        "retCode": 0,
+                        "retMsg": "OK",
+                        "result": {
+                            "category": category or "spot",
+                            "list": [{
+                                "symbol": symbol,
+                                "lastPrice": str(last_price),
+                                "bid1Price": str(last_price * 0.999),
+                                "ask1Price": str(last_price * 1.001),
+                                "volume24h": str(100000000),
+                                "turnover24h": str(500000000),
+                                "prevPrice24h": str(base_price)
+                            }]
+                        }
+                    }
             
             def get_orderbook(self, category="linear", symbol=None, depth=5):
                 # Support both old and new signature (with/without category)
@@ -432,7 +471,19 @@ class CryptoTradingBot:
 
     def _perform_market_analysis(self):
         logger.info("Performing market analysis...")
-        symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
+        
+        # Fetch symbols dynamically from Bybit if enabled
+        if getattr(self.config, 'FETCH_SYMBOLS_ENABLED', False):
+            symbols = self.analyzer.fetch_symbols_from_bybit()
+            if not symbols:
+                logger.warning("Failed to fetch symbols from Bybit, using default list")
+                symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
+        else:
+            # Use hardcoded symbol list if dynamic fetching is disabled
+            symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
+        
+        logger.info(f"Analyzing {len(symbols)} symbols: {symbols[:10]}{'...' if len(symbols) > 10 else ''}")
+        
         phases = {s: self.analyzer.determine_market_phase(s) for s in symbols}
         for s, p in phases.items():
             logger.info(f"{s}: {p.value}")
