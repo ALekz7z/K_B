@@ -852,7 +852,7 @@ class CryptoTradingBot:
                         self.current_phase = priority_phase
                         break
             
-            logger.info(f"Dominant market phase: {self.current_phase.value} (LONG={long_count}, SHORT={short_count}, RANGE={range_count}, UNCERTAIN={uncertain_count})")
+            logger.info(f"Dominant market phase: {self.current_phase.value if self.current_phase else 'NONE'} (LONG={long_count}, SHORT={short_count}, RANGE={range_count}, UNCERTAIN={uncertain_count})")
             
             # Дополнительная информация о решении
             if uncertain_count > 0 and phase_counts:
@@ -875,7 +875,8 @@ class CryptoTradingBot:
             logger.debug(f"Max concurrent trades reached ({params['max_concurrent_trades']}), skipping new opportunities")
             return
         
-        logger.info(f"Checking trading opportunities for {len(self.selected_coins[:params['max_concurrent_coins']])} coins (phase: {self.current_phase.value})")
+        phase_name = self.current_phase.value if self.current_phase else 'NONE'
+        logger.info(f"Checking trading opportunities for {len(self.selected_coins[:params['max_concurrent_coins']])} coins (phase: {phase_name})")
         
         signals_found = 0
         signals_rejected = 0
