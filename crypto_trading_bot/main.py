@@ -268,43 +268,51 @@ class CryptoTradingBot:
         return MockClient()
     
     def _get_real_balance(self) -> float:
-        """Fetch real balance from Bybit API"""
-        try:
-            # For unified margin account, use wallet_balance endpoint
-            # pybit returns a tuple: (response_data, headers) or just response_data dict
-            raw_response = self.client.get_wallet_balance(accountType="UNIFIED")
-            
-            # Handle both dict and tuple responses from pybit
-            if isinstance(raw_response, tuple):
-                response = raw_response[0] if len(raw_response) > 0 else {}
-            else:
-                response = raw_response
-            
-            if response.get("retCode") == 0:
-                result = response.get("result", {})
-                coin_list = result.get("list", [])
+        """Fetch real balance from Bybit API with fallback for different account types"""
+        account_types = ["UNIFIED", "CONTRACT", "SPOT"]
+        
+        for acc_type in account_types:
+            try:
+                # pybit returns a tuple: (response_data, headers) or just response_data dict
+                raw_response = self.client.get_wallet_balance(accountType=acc_type)
                 
-                for coin_data in coin_list:
-                    coins = coin_data.get("coin", [])
-                    for c in coins:
-                        if c.get("coin") == "USDT":
-                            wallet_balance = float(c.get("walletBalance", "0"))
-                            logger.info(f"Real USDT balance from Bybit: {wallet_balance}")
-                            return wallet_balance
+                # Handle both dict and tuple responses from pybit
+                if isinstance(raw_response, tuple):
+                    response = raw_response[0] if len(raw_response) > 0 else {}
+                else:
+                    response = raw_response
                 
-                # If USDT not found, try to get total equity
-                for coin_data in coin_list:
-                    total_equity = float(coin_data.get("totalEquity", "0"))
-                    if total_equity > 0:
-                        logger.info(f"Total equity from Bybit: {total_equity} USDT")
-                        return total_equity
-            
-            logger.warning(f"Could not fetch balance: {response}")
-            return 100.0
-            
-        except Exception as e:
-            logger.error(f"Error fetching real balance: {e}")
-            return 100.0
+                if response.get("retCode") == 0:
+                    result = response.get("result", {})
+                    coin_list = result.get("list", [])
+                    
+                    for coin_data in coin_list:
+                        coins = coin_data.get("coin", [])
+                        for c in coins:
+                            if c.get("coin") == "USDT":
+                                wallet_balance = float(c.get("walletBalance", "0"))
+                                logger.info(f"Real USDT balance from Bybit ({acc_type}): {wallet_balance}")
+                                return wallet_balance
+                    
+                    # If USDT not found, try to get total equity
+                    for coin_data in coin_list:
+                        total_equity = float(coin_data.get("totalEquity", "0"))
+                        if total_equity > 0:
+                            logger.info(f"Total equity from Bybit ({acc_type}): {total_equity} USDT")
+                            return total_equity
+                            
+            except Exception as e:
+                error_msg = str(e)
+                # If error indicates invalid account type or key issue, try next type
+                if "ErrCode: 10003" in error_msg or "ErrCode: 10001" in error_msg:
+                    logger.debug(f"Account type {acc_type} not available, trying next...")
+                    continue
+                else:
+                    logger.warning(f"Error checking {acc_type}: {error_msg.split('(')[0]}")
+                    continue
+        
+        logger.warning("Could not fetch real balance from any account type, using default")
+        return 100.0
 
     def _convert_timeframe(self, timeframe: str) -> str:
         """Convert timeframe to Bybit v5 format (numeric string without 'm')"""
