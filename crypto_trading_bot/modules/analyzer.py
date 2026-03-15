@@ -186,28 +186,23 @@ class MarketAnalyzer:
         try:
             # Get ticker data - handle both dict and float return types
             if self._get_ticker is None:
-                logger.warning(f"No ticker function available for {symbol}, using mock data")
-                # Use mock data for testing
-                ticker_data = 50000  # Default mock price
-                volume_24h = 100000000  # 100M USDT mock volume
-                bid = ticker_data * 0.9995  # 0.05% spread mock
-                ask = ticker_data * 1.0005
-            else:
-                ticker_data = self._get_ticker(symbol)
+                logger.error(f"No ticker function available for {symbol}")
+                return False, {'score': 0}
             
-            # If ticker_data is a float (price only), we can't check liquidity properly
-            if isinstance(ticker_data, (int, float)):
-                logger.warning(f"Ticker returned price only for {symbol}, using mock data")
-                # Use mock data for testing
-                volume_24h = 100000000  # 100M USDT mock volume
-                bid = ticker_data * 0.9995  # 0.05% spread mock
-                ask = ticker_data * 1.0005
-            elif isinstance(ticker_data, dict):
-                # Support both old and new key names
+            ticker_data = self._get_ticker(symbol)
+            
+            # If ticker_data has zero values, API returned no data
+            if isinstance(ticker_data, dict):
                 volume_24h = float(ticker_data.get('volume_24h', ticker_data.get('volume24h', 0)))
                 bid = float(ticker_data.get('bid_price', ticker_data.get('bid1Price', 0)))
                 ask = float(ticker_data.get('ask_price', ticker_data.get('ask1Price', 0)))
+                
+                # Check if we got valid data from API
+                if volume_24h == 0 or bid == 0 or ask == 0:
+                    logger.error(f"Invalid ticker data for {symbol} - API returned zero values")
+                    return False, {'score': 0}
             else:
+                logger.error(f"Unexpected ticker data format for {symbol}: {type(ticker_data)}")
                 return False, {'score': 0}
             
             if bid > 0 and ask > 0:

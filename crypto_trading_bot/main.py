@@ -103,8 +103,11 @@ class CryptoTradingBot:
             secret_key = BYBIT_CONFIG["SECRET_KEY"]
             testnet = BYBIT_CONFIG["TESTNET"]
             
+            # Check if API keys are properly configured
             if not api_key or not secret_key:
-                logger.warning("API keys not configured. Using mock client for testing.")
+                logger.error("API keys not configured in config/settings.py")
+                logger.error("Please add your Bybit API_KEY and SECRET_KEY to use real data")
+                logger.error("Without API keys, the bot will use mock data for testing only")
                 return self._create_mock_client()
             
             # Initialize real Bybit client
@@ -114,7 +117,30 @@ class CryptoTradingBot:
                 api_secret=secret_key,
             )
             
+            # Verify connection by making a test request
+            try:
+                test_response = session.get_kline(category='spot', symbol='BTCUSDT', interval='5', limit=1)
+                if test_response.get('retCode') != 0:
+                    error_msg = test_response.get('retMsg', 'Unknown error').replace('→', '->').replace('\u2192', '->')
+                    logger.error(f"Bybit API test failed: {error_msg}")
+                    logger.error("Check your API keys and network connection")
+                    return self._create_mock_client()
+                
+                # Check if we actually got data
+                result = test_response.get('result', {})
+                klines_list = result.get('list', []) if isinstance(result, dict) else []
+                if not klines_list:
+                    logger.warning("Bybit API returned empty data - check symbol and category")
+                    logger.warning("Falling back to mock client for testing")
+                    return self._create_mock_client()
+                    
+            except Exception as e:
+                error_msg = str(e).replace('→', '->').replace('\u2192', '->')
+                logger.error(f"Failed to test Bybit connection: {error_msg}")
+                return self._create_mock_client()
+            
             logger.info(f"Connected to Bybit {'TESTNET' if testnet else 'MAINNET'}")
+            logger.info("API keys verified successfully")
             return session
             
         except ImportError:
@@ -130,9 +156,9 @@ class CryptoTradingBot:
         
         class MockClient:
             def get_kline(self, category=None, symbol=None, interval=None, limit=None):
-                # Generate realistic mock OHLCV data (pybit v5 format)
+                # Generate realistic mock OHLCV data (pybit v5 format with 'result' -> 'list')
                 base_price = 50000 if symbol and "BTC" in str(symbol) else 3000 if symbol and "ETH" in str(symbol) else 300
-                data = {"retCode": 0, "retMsg": "OK", "list": []}
+                data = {"retCode": 0, "retMsg": "OK", "result": {"category": category or "spot", "symbol": symbol, "list": []}}
                 
                 current_price = base_price
                 for i in range(limit if limit else 100):
@@ -144,7 +170,7 @@ class CryptoTradingBot:
                     
                     # Pybit v5 format: [timestamp, open, high, low, close, volume]
                     timestamp = int((time.time() - (limit if limit else 100 - i) * 300) * 1000)  # ms
-                    data["list"].append([
+                    data["result"]["list"].append([
                         str(timestamp),
                         str(open_price),
                         str(high_price),
@@ -157,20 +183,23 @@ class CryptoTradingBot:
                 return data
             
             def get_tickers(self, category=None, symbol=None):
-                # Generate mock ticker data (pybit v5 format)
+                # Generate mock ticker data (pybit v5 format with 'result' -> 'list')
                 base_price = 50000 if symbol and "BTC" in str(symbol) else 3000 if symbol and "ETH" in str(symbol) else 300
                 last_price = base_price * (1 + np.random.randn() * 0.001)
                 
                 return {
                     "retCode": 0,
                     "retMsg": "OK",
-                    "list": [{
-                        "symbol": symbol,
-                        "lastPrice": str(last_price),
-                        "bid1Price": str(last_price * 0.999),
-                        "ask1Price": str(last_price * 1.001),
-                        "volume24h": str(100000000)
-                    }]
+                    "result": {
+                        "category": category or "spot",
+                        "list": [{
+                            "symbol": symbol,
+                            "lastPrice": str(last_price),
+                            "bid1Price": str(last_price * 0.999),
+                            "ask1Price": str(last_price * 1.001),
+                            "volume24h": str(100000000)
+                        }]
+                    }
                 }
             
             def get_orderbook(self, category="linear", symbol=None, depth=5):
@@ -236,10 +265,17 @@ class CryptoTradingBot:
                     error_msg = response.get('retMsg', 'Unknown error').replace('→', '->').replace('\u2192', '->')
                     logger.error(f"API error for {symbol}: {error_msg}")
                     return []
+                
+                # Pybit v5 returns data in 'result' -> 'list'
+                result = response.get("result", {})
+                klines_list = result.get("list", []) if isinstance(result, dict) else response.get("list", [])
+                
+                if not klines_list:
+                    logger.warning(f"No data returned for {symbol} from Bybit API")
+                    return []
                     
-                klines = response.get("list", [])
                 data = []
-                for k in klines:
+                for k in klines_list:
                     data.append({
                         "timestamp": int(k[0]) / 1000,  # Convert ms to seconds
                         "open": float(k[1]),
@@ -278,19 +314,24 @@ class CryptoTradingBot:
             if isinstance(response, dict) and "retCode" in response:
                 if response["retCode"] != 0:
                     logger.error(f"Ticker API error for {symbol}: {response.get('retMsg', 'Unknown error')}")
-                    return 0.0
+                    return {'lastPrice': 0.0, 'bid1Price': 0.0, 'ask1Price': 0.0, 'volume24h': 0.0}
+                
+                # Pybit v5 returns data in 'result' -> 'list'
+                result = response.get("result", {})
+                tickers_list = result.get("list", []) if isinstance(result, dict) else response.get("list", [])
+                
+                if not tickers_list or len(tickers_list) == 0:
+                    logger.warning(f"No ticker data returned for {symbol} from Bybit API")
+                    return {'lastPrice': 0.0, 'bid1Price': 0.0, 'ask1Price': 0.0, 'volume24h': 0.0}
                     
-                tickers_list = response.get("list", [])
-                if tickers_list and len(tickers_list) > 0:
-                    ticker_data = tickers_list[0]
-                    # Return full dictionary with all needed fields
-                    return {
-                        'lastPrice': float(ticker_data.get("lastPrice", 0)),
-                        'bid1Price': float(ticker_data.get("bid1Price", 0)),
-                        'ask1Price': float(ticker_data.get("ask1Price", 0)),
-                        'volume24h': float(ticker_data.get("volume24h", 0))
-                    }
-                return 0.0
+                ticker_data = tickers_list[0]
+                # Return full dictionary with all needed fields
+                return {
+                    'lastPrice': float(ticker_data.get("lastPrice", 0)),
+                    'bid1Price': float(ticker_data.get("bid1Price", 0)),
+                    'ask1Price': float(ticker_data.get("ask1Price", 0)),
+                    'volume24h': float(ticker_data.get("volume24h", 0))
+                }
             elif isinstance(response, dict):
                 # Mock client or old API format - return as dict
                 last_price = float(response.get("last_price", response.get("lastPrice", 0)))

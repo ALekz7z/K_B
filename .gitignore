@@ -1,11 +1,16 @@
 ```
-# Compiled Python files
-*.pyc
+# Python
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
 
 # Logs
 *.log
+logs/
 
-# Original rules preserved
-*.log
+# Environment
+.env
+.env.local
+*.env.*
 ```
