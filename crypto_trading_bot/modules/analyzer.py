@@ -393,7 +393,7 @@ class MarketAnalyzer:
                 # Futures mode: use 5m candles directly
                 ohlcv_5m = self._get_ohlcv(symbol, "5m", limit=min_candles_5m)
                 if not ohlcv_5m or len(ohlcv_5m) < min_candles_5m:
-                    logger.warning(f"Insufficient historical data for {symbol} volatility check - need at least {min_candles_5m} 5m candles")
+                    logger.debug(f"Insufficient 5m data for {symbol} volatility check - need at least {min_candles_5m} candles")
                     return False, {'score': 0}
                 
                 # Calculate price change from 5m data (compare first and last candle in the window)
