@@ -296,7 +296,7 @@ class CryptoTradingBot:
             
             logger.debug(f"Requesting kline data for {symbol}: category={category}, interval={bybit_interval}, limit={limit}")
             
-            # Pybit v5+ uses get_kline with category parameter
+            # Try first with numeric interval (e.g., "1440" for 1 day)
             response = self.client.get_kline(
                 category=category,
                 symbol=symbol,
@@ -304,11 +304,31 @@ class CryptoTradingBot:
                 limit=limit
             )
             
+            # Check if error is "Invalid period" - try alternative format
+            if isinstance(response, dict) and response.get("retCode") != 0:
+                error_msg = response.get('retMsg', '')
+                if 'Invalid period' in error_msg or 'period' in error_msg.lower():
+                    logger.info(f"Interval '{bybit_interval}' not supported for {symbol}, trying alternative format...")
+                    # Try with string interval format (e.g., "D" for daily)
+                    alt_interval = self._get_alternative_interval(bybit_interval)
+                    if alt_interval:
+                        logger.debug(f"Retrying with alternative interval: {alt_interval}")
+                        response = self.client.get_kline(
+                            category=category,
+                            symbol=symbol,
+                            interval=alt_interval,
+                            limit=limit
+                        )
+            
             # Extract list from response and convert to expected format
             if isinstance(response, dict) and "retCode" in response:
                 if response["retCode"] != 0:
-                    error_msg = response.get('retMsg', 'Unknown error').replace('→', '->').replace('\u2192', '->')
-                    logger.error(f"API error for {symbol}: {error_msg}")
+                    error_msg_full = response.get('retMsg', 'Unknown error').replace('→', '->').replace('\u2192', '->')
+                    # Handle insufficient data gracefully
+                    if 'info' in error_msg_full.lower() or 'empty' in error_msg_full.lower() or 'no data' in error_msg_full.lower():
+                        logger.warning(f"Insufficient historical data for {symbol} - skipping volatility check")
+                        return []
+                    logger.error(f"API error for {symbol}: {error_msg_full}")
                     return []
                 
                 # Pybit v5 returns data in 'result' -> 'list'
@@ -316,7 +336,7 @@ class CryptoTradingBot:
                 klines_list = result.get("list", []) if isinstance(result, dict) else response.get("list", [])
                 
                 if not klines_list:
-                    logger.warning(f"No data returned for {symbol} from Bybit API")
+                    logger.warning(f"No data returned for {symbol} from Bybit API - may have insufficient history")
                     return []
                     
                 data = []
@@ -340,8 +360,65 @@ class CryptoTradingBot:
         except Exception as e:
             # Convert exception to string safely, avoiding special characters
             error_msg = str(e).replace('→', '->').replace('\u2192', '->')
+            # Handle insufficient data gracefully
+            if 'insufficient' in error_msg.lower() or 'not enough' in error_msg.lower() or 'empty' in error_msg.lower():
+                logger.warning(f"Insufficient historical data for {symbol} - skipping volatility check")
+                return []
             logger.error(f"Error getting OHLCV for {symbol}: {error_msg}")
             return []
+    
+    def _get_alternative_interval(self, interval: str) -> Optional[str]:
+        """
+        Get alternative interval format for Bybit API v5.
+        Tries to convert between numeric and string formats.
+        
+        Args:
+            interval: Original interval (e.g., "1440", "60", "5")
+            
+        Returns:
+            Alternative interval string or None if no alternative exists
+        """
+        try:
+            interval_num = int(interval)
+            
+            # Daily intervals
+            if interval_num == 1440:
+                return "D"
+            elif interval_num == 720:
+                return "12H"
+            elif interval_num == 360:
+                return "6H"
+            elif interval_num == 240:
+                return "4H"
+            elif interval_num == 120:
+                return "2H"
+            elif interval_num == 60:
+                return "H"
+            elif interval_num == 30:
+                return "30"
+            elif interval_num == 15:
+                return "15"
+            elif interval_num == 5:
+                return "5"
+            elif interval_num == 3:
+                return "3"
+            elif interval_num == 1:
+                return "1"
+            else:
+                # For other values, try to return as string without conversion
+                return str(interval_num)
+        except (ValueError, TypeError):
+            # If already a string, try to convert back to numeric
+            interval_str = str(interval).upper()
+            if interval_str == "D":
+                return "1440"
+            elif interval_str == "H":
+                return "60"
+            elif interval_str.endswith("H"):
+                hours = interval_str[:-1]
+                return str(int(hours) * 60)
+            else:
+                return None
 
     def _get_ticker_price(self, symbol):
         """Get current ticker price and full data (wrapper for pybit v5 compatibility)"""

@@ -351,7 +351,8 @@ class MarketAnalyzer:
                 return False, {'score': 0}
             
             ohlcv = self._get_ohlcv(symbol, "1d", limit=2)
-            if len(ohlcv) < 2:
+            if not ohlcv or len(ohlcv) < 2:
+                logger.warning(f"Insufficient historical data for {symbol} volatility check - need at least 2 daily candles")
                 return False, {'score': 0}
             
             price_change = abs(ohlcv[-1]['close'] - ohlcv[-2]['close']) / ohlcv[-2]['close']
@@ -377,6 +378,11 @@ class MarketAnalyzer:
                 'atr_percent': atr_percent
             }
         except Exception as e:
+            error_msg = str(e)
+            # Handle insufficient data gracefully
+            if 'insufficient' in error_msg.lower() or 'not enough' in error_msg.lower() or 'empty' in error_msg.lower():
+                logger.warning(f"Insufficient historical data for {symbol} volatility check - skipping")
+                return False, {'score': 0}
             logger.error(f"Volatility check error for {symbol}: {e}")
             return False, {'score': 0}
     
