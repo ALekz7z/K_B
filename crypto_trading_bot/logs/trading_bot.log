@@ -258,3 +258,101 @@
 2026-03-15 03:49:35,697 - __main__ - INFO - Dominant market phase: UNCERTAIN
 2026-03-15 03:49:50,219 - __main__ - INFO - Stopping crypto trading bot...
 2026-03-15 03:49:50,220 - __main__ - INFO - All positions closed
+2026-03-15 04:08:31,777 - main - ERROR - API keys not configured in config/settings.py
+2026-03-15 04:08:31,777 - main - ERROR - Please add your Bybit API_KEY and SECRET_KEY to use real data
+2026-03-15 04:08:31,777 - main - ERROR - Without API keys, the bot will use mock data for testing only
+2026-03-15 04:08:31,777 - main - INFO - Crypto Trading Bot initialized with 100.00 USDT
+2026-03-15 04:08:31,778 - main - INFO - Trading Mode: SPOT
+2026-03-15 04:08:31,778 - main - INFO - === SPOT MODE PARAMETERS ===
+2026-03-15 04:08:31,778 - main - INFO - Position Size: 12.0% of balance
+2026-03-15 04:08:31,778 - main - INFO - Leverage: 1x
+2026-03-15 04:08:31,778 - main - INFO - Stop Loss: 4.0%
+2026-03-15 04:08:31,778 - main - INFO - Take Profit 1: 1.5%
+2026-03-15 04:08:31,778 - main - INFO - Take Profit 2: 3.0%
+2026-03-15 04:08:31,779 - main - INFO - Trailing Stop Activation: 2.0%
+2026-03-15 04:08:31,779 - main - INFO - Max Concurrent Trades: 2
+2026-03-15 04:08:31,779 - main - INFO - Max Loss Streak: 5
+2026-03-15 04:08:31,779 - main - INFO - Short Selling Allowed: False
+2026-03-15 04:08:31,779 - main - INFO - ========================================
+2026-03-15 04:09:06,841 - __main__ - ERROR - API keys not configured in config/settings.py
+2026-03-15 04:09:06,857 - __main__ - ERROR - Please add your Bybit API_KEY and SECRET_KEY to use real data
+2026-03-15 04:09:06,857 - __main__ - ERROR - Without API keys, the bot will use mock data for testing only
+2026-03-15 04:09:06,857 - __main__ - INFO - Crypto Trading Bot initialized with 100.00 USDT
+2026-03-15 04:09:06,858 - __main__ - INFO - Trading Mode: SPOT
+2026-03-15 04:09:06,858 - __main__ - INFO - === SPOT MODE PARAMETERS ===
+2026-03-15 04:09:06,858 - __main__ - INFO - Position Size: 12.0% of balance
+2026-03-15 04:09:06,858 - __main__ - INFO - Leverage: 1x
+2026-03-15 04:09:06,858 - __main__ - INFO - Stop Loss: 4.0%
+2026-03-15 04:09:06,858 - __main__ - INFO - Take Profit 1: 1.5%
+2026-03-15 04:09:06,858 - __main__ - INFO - Take Profit 2: 3.0%
+2026-03-15 04:09:06,858 - __main__ - INFO - Trailing Stop Activation: 2.0%
+2026-03-15 04:09:06,858 - __main__ - INFO - Max Concurrent Trades: 2
+2026-03-15 04:09:06,859 - __main__ - INFO - Max Loss Streak: 5
+2026-03-15 04:09:06,859 - __main__ - INFO - Short Selling Allowed: False
+2026-03-15 04:09:06,859 - __main__ - INFO - ========================================
+2026-03-15 04:09:06,859 - __main__ - INFO - Starting crypto trading bot...
+2026-03-15 04:09:06,859 - __main__ - INFO - Balance: 100.00 USDT - Trading SPOT (no leverage)
+2026-03-15 04:09:06,859 - __main__ - INFO - Performing market analysis...
+2026-03-15 04:09:06,943 - modules.analyzer - INFO - UNCERTAIN phase for BTCUSDT
+2026-03-15 04:09:06,979 - modules.analyzer - INFO - UNCERTAIN phase for ETHUSDT
+2026-03-15 04:09:07,000 - modules.analyzer - INFO - UNCERTAIN phase for BNBUSDT
+2026-03-15 04:09:07,001 - __main__ - INFO - BTCUSDT: UNCERTAIN
+2026-03-15 04:09:07,001 - __main__ - INFO - ETHUSDT: UNCERTAIN
+2026-03-15 04:09:07,001 - __main__ - INFO - BNBUSDT: UNCERTAIN
+2026-03-15 04:09:07,001 - __main__ - INFO - Dominant market phase: UNCERTAIN
+2026-03-15 04:10:07,004 - __main__ - INFO - Balance: 100.00 USDT - Trading SPOT (no leverage)
+2026-03-15 04:11:07,007 - __main__ - INFO - Balance: 100.00 USDT - Trading SPOT (no leverage)
+2026-03-15 04:12:07,010 - __main__ - INFO - Balance: 100.00 USDT - Trading SPOT (no leverage)
+2026-03-15 04:13:07,013 - __main__ - INFO - Balance: 100.00 USDT - Trading SPOT (no leverage)
+2026-03-15 04:14:07,016 - __main__ - INFO - Balance: 100.00 USDT - Trading SPOT (no leverage)
+2026-03-15 04:15:07,019 - __main__ - INFO - Balance: 100.00 USDT - Trading SPOT (no leverage)
+2026-03-15 04:15:18,047 - __main__ - ERROR - pybit library not installed. Install with: pip install pybit
+2026-03-15 04:15:18,048 - __main__ - INFO - Crypto Trading Bot initialized with 100.00 USDT
+2026-03-15 04:15:18,048 - __main__ - INFO - Trading Mode: SPOT
+2026-03-15 04:15:18,048 - __main__ - INFO - === SPOT MODE PARAMETERS ===
+2026-03-15 04:15:18,048 - __main__ - INFO - Position Size: 12.0% of balance
+2026-03-15 04:15:18,048 - __main__ - INFO - Leverage: 1x
+2026-03-15 04:15:18,048 - __main__ - INFO - Stop Loss: 4.0%
+2026-03-15 04:15:18,048 - __main__ - INFO - Take Profit 1: 1.5%
+2026-03-15 04:15:18,049 - __main__ - INFO - Take Profit 2: 3.0%
+2026-03-15 04:15:18,049 - __main__ - INFO - Trailing Stop Activation: 2.0%
+2026-03-15 04:15:18,049 - __main__ - INFO - Max Concurrent Trades: 2
+2026-03-15 04:15:18,049 - __main__ - INFO - Max Loss Streak: 5
+2026-03-15 04:15:18,049 - __main__ - INFO - Short Selling Allowed: False
+2026-03-15 04:15:18,049 - __main__ - INFO - ========================================
+2026-03-15 04:15:18,049 - __main__ - INFO - Starting crypto trading bot...
+2026-03-15 04:15:18,049 - __main__ - INFO - Balance: 100.00 USDT - Trading SPOT (no leverage)
+2026-03-15 04:15:18,049 - __main__ - INFO - Performing market analysis...
+2026-03-15 04:15:18,075 - modules.analyzer - INFO - UNCERTAIN phase for BTCUSDT
+2026-03-15 04:15:18,081 - modules.analyzer - INFO - UNCERTAIN phase for ETHUSDT
+2026-03-15 04:15:18,086 - modules.analyzer - INFO - UNCERTAIN phase for BNBUSDT
+2026-03-15 04:15:18,086 - __main__ - INFO - BTCUSDT: UNCERTAIN
+2026-03-15 04:15:18,087 - __main__ - INFO - ETHUSDT: UNCERTAIN
+2026-03-15 04:15:18,087 - __main__ - INFO - BNBUSDT: UNCERTAIN
+2026-03-15 04:15:18,087 - __main__ - INFO - Dominant market phase: UNCERTAIN
+2026-03-15 04:16:18,539 - __main__ - ERROR - API keys not configured in config/settings.py
+2026-03-15 04:16:18,539 - __main__ - ERROR - Please add your Bybit API_KEY and SECRET_KEY to use real data
+2026-03-15 04:16:18,540 - __main__ - ERROR - Without API keys, the bot will use mock data for testing only
+2026-03-15 04:16:18,540 - __main__ - INFO - Crypto Trading Bot initialized with 100.00 USDT
+2026-03-15 04:16:18,540 - __main__ - INFO - Trading Mode: SPOT
+2026-03-15 04:16:18,540 - __main__ - INFO - === SPOT MODE PARAMETERS ===
+2026-03-15 04:16:18,540 - __main__ - INFO - Position Size: 12.0% of balance
+2026-03-15 04:16:18,540 - __main__ - INFO - Leverage: 1x
+2026-03-15 04:16:18,541 - __main__ - INFO - Stop Loss: 4.0%
+2026-03-15 04:16:18,541 - __main__ - INFO - Take Profit 1: 1.5%
+2026-03-15 04:16:18,541 - __main__ - INFO - Take Profit 2: 3.0%
+2026-03-15 04:16:18,541 - __main__ - INFO - Trailing Stop Activation: 2.0%
+2026-03-15 04:16:18,541 - __main__ - INFO - Max Concurrent Trades: 2
+2026-03-15 04:16:18,542 - __main__ - INFO - Max Loss Streak: 5
+2026-03-15 04:16:18,542 - __main__ - INFO - Short Selling Allowed: False
+2026-03-15 04:16:18,542 - __main__ - INFO - ========================================
+2026-03-15 04:16:18,542 - __main__ - INFO - Starting crypto trading bot...
+2026-03-15 04:16:18,542 - __main__ - INFO - Balance: 100.00 USDT - Trading SPOT (no leverage)
+2026-03-15 04:16:18,542 - __main__ - INFO - Performing market analysis...
+2026-03-15 04:16:18,643 - modules.analyzer - INFO - UNCERTAIN phase for BTCUSDT
+2026-03-15 04:16:18,663 - modules.analyzer - INFO - SHORT phase detected for ETHUSDT
+2026-03-15 04:16:18,681 - modules.analyzer - INFO - UNCERTAIN phase for BNBUSDT
+2026-03-15 04:16:18,682 - __main__ - INFO - BTCUSDT: UNCERTAIN
+2026-03-15 04:16:18,682 - __main__ - INFO - ETHUSDT: SHORT
+2026-03-15 04:16:18,682 - __main__ - INFO - BNBUSDT: UNCERTAIN
+2026-03-15 04:16:18,682 - __main__ - INFO - Dominant market phase: UNCERTAIN
