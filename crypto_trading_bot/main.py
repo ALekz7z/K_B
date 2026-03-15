@@ -308,7 +308,15 @@ class CryptoTradingBot:
             
             logger.debug(f"Requesting kline data for {symbol}: category={category}, interval={bybit_interval}, limit={limit}")
             
-            # Try first with numeric interval (e.g., "1440" for 1 day)
+            # For SPOT category, use string interval format directly (more reliable for spot)
+            # For LINEAR category, use numeric format
+            if category == "spot":
+                string_interval = self._get_string_interval(bybit_interval)
+                if string_interval and string_interval != bybit_interval:
+                    logger.debug(f"Using string interval format for spot: {string_interval}")
+                    bybit_interval = string_interval
+            
+            # Try first with the determined interval format
             response = self.client.get_kline(
                 category=category,
                 symbol=symbol,
@@ -323,7 +331,7 @@ class CryptoTradingBot:
                 # Check for Invalid period error (ErrCode: 10001) or any period-related error
                 if 'Invalid period' in error_msg or 'period' in error_msg.lower() or ret_code == 10001:
                     logger.info(f"Interval '{bybit_interval}' not supported for {symbol}, trying alternative format...")
-                    # Try with string interval format (e.g., "D" for daily)
+                    # Try with alternative interval format
                     alt_interval = self._get_alternative_interval(bybit_interval)
                     if alt_interval and alt_interval != bybit_interval:
                         logger.debug(f"Retrying with alternative interval: {alt_interval}")
@@ -428,6 +436,43 @@ class CryptoTradingBot:
                 return str(int(hours) * 60)
             else:
                 return None
+
+    def _get_string_interval(self, interval: str) -> Optional[str]:
+        """
+        Convert numeric interval to string format for Bybit SPOT category.
+        String format is more reliable for spot trading pairs.
+        
+        Args:
+            interval: Numeric interval (e.g., "1440", "60", "5")
+            
+        Returns:
+            String interval format or None if conversion not needed
+        """
+        try:
+            interval_num = int(interval)
+            
+            # Daily intervals - use string format for spot category
+            if interval_num == 1440:
+                return "D"
+            elif interval_num == 720:
+                return "12H"
+            elif interval_num == 360:
+                return "6H"
+            elif interval_num == 240:
+                return "4H"
+            elif interval_num == 120:
+                return "2H"
+            elif interval_num == 60:
+                return "H"
+            # For minute intervals, keep numeric format (they work fine)
+            elif interval_num in [30, 15, 5, 3, 1]:
+                return str(interval_num)
+            else:
+                # For other values, no string format available
+                return None
+        except (ValueError, TypeError):
+            # If already a string, return as is
+            return interval
 
     def _get_ticker_price(self, symbol):
         """Get current ticker price and full data (wrapper for pybit v5 compatibility)"""
