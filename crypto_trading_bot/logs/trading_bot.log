@@ -670,3 +670,90 @@
 2026-03-15 05:16:33,140 - __main__ - INFO - Dominant market phase: UNCERTAIN
 2026-03-15 05:17:06,460 - __main__ - INFO - Stopping crypto trading bot...
 2026-03-15 05:17:06,462 - __main__ - INFO - All positions closed
+2026-03-15 06:26:50,119 - __main__ - ERROR - API keys not configured in config/settings.py
+2026-03-15 06:26:50,120 - __main__ - ERROR - Please add your Bybit API_KEY and SECRET_KEY to use real data
+2026-03-15 06:26:50,120 - __main__ - ERROR - Without API keys, the bot will use mock data for testing only
+2026-03-15 06:26:50,120 - __main__ - INFO - Crypto Trading Bot initialized with 100.00 USDT
+2026-03-15 06:26:50,121 - __main__ - INFO - Trading Mode: SPOT
+2026-03-15 06:26:50,121 - __main__ - INFO - === SPOT MODE PARAMETERS ===
+2026-03-15 06:26:50,121 - __main__ - INFO - Position Size: 12.0% of balance
+2026-03-15 06:26:50,121 - __main__ - INFO - Leverage: 1x
+2026-03-15 06:26:50,121 - __main__ - INFO - Stop Loss: 4.0%
+2026-03-15 06:26:50,121 - __main__ - INFO - Take Profit 1: 1.5%
+2026-03-15 06:26:50,122 - __main__ - INFO - Take Profit 2: 3.0%
+2026-03-15 06:26:50,122 - __main__ - INFO - Trailing Stop Activation: 2.0%
+2026-03-15 06:26:50,122 - __main__ - INFO - Max Concurrent Trades: 2
+2026-03-15 06:26:50,122 - __main__ - INFO - Max Loss Streak: 5
+2026-03-15 06:26:50,122 - __main__ - INFO - Short Selling Allowed: False
+2026-03-15 06:26:50,122 - __main__ - INFO - ========================================
+2026-03-15 06:26:50,122 - __main__ - INFO - Starting crypto trading bot...
+2026-03-15 06:26:50,123 - __main__ - INFO - Balance: 100.00 USDT - Trading SPOT (no leverage)
+2026-03-15 06:26:50,123 - __main__ - INFO - Performing market analysis...
+2026-03-15 06:26:50,123 - modules.analyzer - INFO - Fetching symbols from Bybit: category=spot, quote=USDT, sort_by=volume24h
+2026-03-15 06:26:50,158 - modules.analyzer - INFO - Fetched 30 symbols from Bybit (top 30 by volume24h)
+2026-03-15 06:26:50,159 - __main__ - INFO - Successfully fetched 30 symbols from Bybit
+2026-03-15 06:26:50,159 - __main__ - INFO - Analyzing 30 symbols: ['FETUSDT', 'INJUSDT', 'MATICUSDT', 'DOTUSDT', 'SOLUSDT', 'ATOMUSDT', 'BNBUSDT', 'BCHUSDT', 'GRTUSDT', 'TIAUSDT']...
+2026-03-15 06:26:50,178 - modules.analyzer - INFO - UNCERTAIN phase for FETUSDT
+2026-03-15 06:26:50,198 - modules.analyzer - INFO - LONG phase detected for INJUSDT
+2026-03-15 06:26:50,204 - modules.analyzer - INFO - UNCERTAIN phase for MATICUSDT
+2026-03-15 06:26:50,224 - modules.analyzer - INFO - UNCERTAIN phase for DOTUSDT
+2026-03-15 06:26:50,243 - modules.analyzer - INFO - UNCERTAIN phase for SOLUSDT
+2026-03-15 06:26:50,263 - modules.analyzer - INFO - UNCERTAIN phase for ATOMUSDT
+2026-03-15 06:26:50,280 - modules.analyzer - INFO - UNCERTAIN phase for BNBUSDT
+2026-03-15 06:26:50,299 - modules.analyzer - INFO - UNCERTAIN phase for BCHUSDT
+2026-03-15 06:26:50,318 - modules.analyzer - INFO - UNCERTAIN phase for GRTUSDT
+2026-03-15 06:26:50,338 - modules.analyzer - INFO - UNCERTAIN phase for TIAUSDT
+2026-03-15 06:26:50,360 - modules.analyzer - INFO - SHORT phase detected for OPUSDT
+2026-03-15 06:26:50,380 - modules.analyzer - INFO - UNCERTAIN phase for BTCUSDT
+2026-03-15 06:26:50,400 - modules.analyzer - INFO - LONG phase detected for RUNEUSDT
+2026-03-15 06:26:50,405 - modules.analyzer - INFO - UNCERTAIN phase for UNIUSDT
+2026-03-15 06:26:50,423 - modules.analyzer - INFO - UNCERTAIN phase for NEARUSDT
+2026-03-15 06:26:50,443 - modules.analyzer - INFO - UNCERTAIN phase for STXUSDT
+2026-03-15 06:26:50,463 - modules.analyzer - INFO - UNCERTAIN phase for SUIUSDT
+2026-03-15 06:26:50,482 - modules.analyzer - INFO - UNCERTAIN phase for ETHUSDT
+2026-03-15 06:26:50,522 - modules.analyzer - INFO - UNCERTAIN phase for LTCUSDT
+2026-03-15 06:26:50,541 - modules.analyzer - INFO - UNCERTAIN phase for IMXUSDT
+2026-03-15 06:26:50,562 - modules.analyzer - INFO - UNCERTAIN phase for FILUSDT
+2026-03-15 06:26:50,583 - modules.analyzer - INFO - SHORT phase detected for SEIUSDT
+2026-03-15 06:26:50,602 - modules.analyzer - INFO - UNCERTAIN phase for ARBUSDT
+2026-03-15 06:26:50,622 - modules.analyzer - INFO - UNCERTAIN phase for DOGEUSDT
+2026-03-15 06:26:50,641 - modules.analyzer - INFO - UNCERTAIN phase for RENDERUSDT
+2026-03-15 06:26:50,660 - modules.analyzer - INFO - UNCERTAIN phase for AVAXUSDT
+2026-03-15 06:26:50,680 - modules.analyzer - INFO - UNCERTAIN phase for LINKUSDT
+2026-03-15 06:26:50,700 - modules.analyzer - INFO - UNCERTAIN phase for XRPUSDT
+2026-03-15 06:26:50,719 - modules.analyzer - INFO - SHORT phase detected for APTUSDT
+2026-03-15 06:26:50,724 - modules.analyzer - INFO - LONG phase detected for ADAUSDT
+2026-03-15 06:26:50,738 - __main__ - INFO - FETUSDT: UNCERTAIN
+2026-03-15 06:26:50,738 - __main__ - INFO - INJUSDT: LONG
+2026-03-15 06:26:50,739 - __main__ - INFO - MATICUSDT: UNCERTAIN
+2026-03-15 06:26:50,739 - __main__ - INFO - DOTUSDT: UNCERTAIN
+2026-03-15 06:26:50,739 - __main__ - INFO - SOLUSDT: UNCERTAIN
+2026-03-15 06:26:50,739 - __main__ - INFO - ATOMUSDT: UNCERTAIN
+2026-03-15 06:26:50,739 - __main__ - INFO - BNBUSDT: UNCERTAIN
+2026-03-15 06:26:50,739 - __main__ - INFO - BCHUSDT: UNCERTAIN
+2026-03-15 06:26:50,739 - __main__ - INFO - GRTUSDT: UNCERTAIN
+2026-03-15 06:26:50,739 - __main__ - INFO - TIAUSDT: UNCERTAIN
+2026-03-15 06:26:50,740 - __main__ - INFO - OPUSDT: SHORT
+2026-03-15 06:26:50,740 - __main__ - INFO - BTCUSDT: UNCERTAIN
+2026-03-15 06:26:50,740 - __main__ - INFO - RUNEUSDT: LONG
+2026-03-15 06:26:50,740 - __main__ - INFO - UNIUSDT: UNCERTAIN
+2026-03-15 06:26:50,740 - __main__ - INFO - NEARUSDT: UNCERTAIN
+2026-03-15 06:26:50,740 - __main__ - INFO - STXUSDT: UNCERTAIN
+2026-03-15 06:26:50,740 - __main__ - INFO - SUIUSDT: UNCERTAIN
+2026-03-15 06:26:50,740 - __main__ - INFO - ETHUSDT: UNCERTAIN
+2026-03-15 06:26:50,740 - __main__ - INFO - LTCUSDT: UNCERTAIN
+2026-03-15 06:26:50,740 - __main__ - INFO - IMXUSDT: UNCERTAIN
+2026-03-15 06:26:50,741 - __main__ - INFO - FILUSDT: UNCERTAIN
+2026-03-15 06:26:50,741 - __main__ - INFO - SEIUSDT: SHORT
+2026-03-15 06:26:50,741 - __main__ - INFO - ARBUSDT: UNCERTAIN
+2026-03-15 06:26:50,741 - __main__ - INFO - DOGEUSDT: UNCERTAIN
+2026-03-15 06:26:50,741 - __main__ - INFO - RENDERUSDT: UNCERTAIN
+2026-03-15 06:26:50,741 - __main__ - INFO - AVAXUSDT: UNCERTAIN
+2026-03-15 06:26:50,741 - __main__ - INFO - LINKUSDT: UNCERTAIN
+2026-03-15 06:26:50,741 - __main__ - INFO - XRPUSDT: UNCERTAIN
+2026-03-15 06:26:50,741 - __main__ - INFO - APTUSDT: SHORT
+2026-03-15 06:26:50,741 - __main__ - INFO - ADAUSDT: LONG
+2026-03-15 06:26:50,742 - __main__ - INFO - Dominant market phase: UNCERTAIN
+2026-03-15 06:27:00,743 - __main__ - INFO - STATS | Mode: SPOT | Balance: 100.00 USDT | Open: 0 | Total: 0 | Win Rate: 0.0% | P&L: +0.00 USDT | Loss Streak: 0 | Paused: False
+2026-03-15 06:27:22,599 - __main__ - INFO - Stopping crypto trading bot...
+2026-03-15 06:27:22,599 - __main__ - INFO - All positions closed
