@@ -905,7 +905,8 @@ class CryptoTradingBot:
                 logger.debug(f"Checking LONG strategies for {symbol}")
                 signal = self._check_long_strategies(symbol, ohlcv)
                 if signal:
-                    logger.info(f"✓ LONG signal found for {symbol}: {signal.get('strategy', 'unknown')} @ {current_price:.6f}")
+                    strategy_name = signal.get('strategy', 'unknown')
+                    logger.info(f"✓ LONG signal found for {symbol}: {strategy_name} @ {current_price:.6f}")
                 else:
                     logger.debug(f"No LONG signal for {symbol}")
             elif self.current_phase == MarketPhase.SHORT:
