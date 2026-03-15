@@ -802,13 +802,63 @@ class CryptoTradingBot:
         phases = {s: self.analyzer.determine_market_phase(s) for s in symbols}
         for s, p in phases.items():
             logger.info(f"{s}: {p.value}")
-        phase_counts = {}
-        for p in phases.values():
-            phase_counts[p] = phase_counts.get(p, 0) + 1
         
-        # Find the most common phase
-        self.current_phase = max(phase_counts.keys(), key=lambda k: phase_counts[k])
-        logger.info(f"Dominant market phase: {self.current_phase.value}")
+        # Подсчёт фаз с игнорированием UNCERTAIN при наличии сильных сигналов
+        phase_counts = {}
+        uncertain_count = 0
+        long_count = 0
+        short_count = 0
+        range_count = 0
+        
+        for p in phases.values():
+            if p == MarketPhase.UNCERTAIN:
+                uncertain_count += 1
+            else:
+                phase_counts[p] = phase_counts.get(p, 0) + 1
+                if p == MarketPhase.LONG:
+                    long_count += 1
+                elif p == MarketPhase.SHORT:
+                    short_count += 1
+                elif p == MarketPhase.RANGE:
+                    range_count += 1
+        
+        # Логирование распределения фаз
+        logger.info(f"Phase distribution: LONG={long_count}, SHORT={short_count}, RANGE={range_count}, UNCERTAIN={uncertain_count}")
+        
+        # Новая логика выбора доминирующей фазы:
+        # 1. Если есть чёткие сигналы (LONG/SHORT/RANGE), игнорируем UNCERTAIN
+        # 2. Приоритет: LONG > SHORT > RANGE (при равном количестве)
+        # 3. Если все UNCERTAIN - тогда используем UNCERTAIN
+        
+        if not phase_counts:
+            # Все фазы UNCERTAIN
+            self.current_phase = MarketPhase.UNCERTAIN
+            logger.warning("All symbols show UNCERTAIN phase - no clear trading direction")
+        else:
+            # Находим максимальное количество среди чётких фаз
+            max_count = max(phase_counts.values())
+            
+            # Собираем фазы с максимальным количеством
+            candidates = [phase for phase, count in phase_counts.items() if count == max_count]
+            
+            if len(candidates) == 1:
+                # Один явный лидер
+                self.current_phase = candidates[0]
+            else:
+                # Несколько фаз с одинаковым количеством - применяем приоритет
+                priority_order = [MarketPhase.LONG, MarketPhase.SHORT, MarketPhase.RANGE]
+                for priority_phase in priority_order:
+                    if priority_phase in candidates:
+                        self.current_phase = priority_phase
+                        break
+            
+            logger.info(f"Dominant market phase: {self.current_phase.value} (LONG={long_count}, SHORT={short_count}, RANGE={range_count}, UNCERTAIN={uncertain_count})")
+            
+            # Дополнительная информация о решении
+            if uncertain_count > 0 and phase_counts:
+                certainty_ratio = sum(phase_counts.values()) / len(phases) * 100
+                logger.info(f"Market certainty: {certainty_ratio:.1f}% ({sum(phase_counts.values())} of {len(phases)} symbols have clear signals)")
+        
         self.selected_coins = self.analyzer.select_coins(symbols)
         self.analyzer.update_adaptive_parameters(self.trades_history)
 
@@ -817,17 +867,25 @@ class CryptoTradingBot:
         params = self.risk_manager.get_mode_params()
         
         if not self.selected_coins:
+            logger.debug("No coins selected for trading")
             return
         
         # Respect concurrent trade limits from risk manager
         if len(self.risk_manager.open_trades) >= params['max_concurrent_trades']:
+            logger.debug(f"Max concurrent trades reached ({params['max_concurrent_trades']}), skipping new opportunities")
             return
+        
+        logger.info(f"Checking trading opportunities for {len(self.selected_coins[:params['max_concurrent_coins']])} coins (phase: {self.current_phase.value})")
+        
+        signals_found = 0
+        signals_rejected = 0
         
         for coin in self.selected_coins[:params['max_concurrent_coins']]:
             symbol = coin["symbol"] if isinstance(coin, dict) else coin
             
             # Skip if already trading this symbol
             if symbol in self.risk_manager.open_trades:
+                logger.debug(f"Skipping {symbol} - already in open trades")
                 continue
             
             # Get OHLCV data
@@ -840,26 +898,48 @@ class CryptoTradingBot:
             
             # Select strategy based on market phase
             if self.current_phase == MarketPhase.LONG:
+                logger.debug(f"Checking LONG strategies for {symbol}")
                 signal = self._check_long_strategies(symbol, ohlcv)
+                if signal:
+                    logger.info(f"✓ LONG signal found for {symbol}: {signal.get('strategy', 'unknown')} @ {current_price:.6f}")
+                else:
+                    logger.debug(f"No LONG signal for {symbol}")
             elif self.current_phase == MarketPhase.SHORT:
                 # Only allow short if mode permits
                 if params['allow_short']:
+                    logger.debug(f"Checking SHORT strategies for {symbol}")
                     signal = self._check_short_strategies(symbol, ohlcv)
+                    if signal:
+                        logger.info(f"✓ SHORT signal found for {symbol}: {signal.get('strategy', 'unknown')} @ {current_price:.6f}")
+                    else:
+                        logger.debug(f"No SHORT signal for {symbol}")
                 else:
-                    logger.debug(f"Short selling not allowed in {params['mode']} mode, skipping")
+                    logger.debug(f"Short selling not allowed in {params['mode']} mode, skipping {symbol}")
             elif self.current_phase == MarketPhase.RANGE:
+                logger.debug(f"Checking RANGE strategies for {symbol}")
                 signal = self._check_range_strategies(symbol, ohlcv)
+                if signal:
+                    logger.info(f"✓ RANGE signal found for {symbol}: {signal.get('strategy', 'unknown')} @ {current_price:.6f}")
+                else:
+                    logger.debug(f"No RANGE signal for {symbol}")
             
             if signal:
+                signals_found += 1
                 # Use risk manager to validate and open position
                 can_open, reason = self.risk_manager.can_open_trade(symbol, signal['action'])
                 if can_open:
                     # Calculate position size
                     quantity = self.risk_manager.calculate_position_size(symbol, current_price)
                     signal['quantity'] = quantity
+                    logger.info(f"Opening position for {symbol}: {signal['action']} {quantity} units @ {current_price:.6f}")
                     self._open_position(signal)
                 else:
-                    logger.debug(f"Cannot open position for {symbol}: {reason}")
+                    signals_rejected += 1
+                    logger.info(f"✗ Signal rejected for {symbol}: {reason}")
+            else:
+                signals_rejected += 1
+        
+        logger.info(f"Opportunity check complete: {signals_found} signals found, {signals_rejected} signals rejected")
 
     def _check_long_strategies(self, symbol, ohlcv):
         for s in [self.long_trader.check_breakout_strategy, self.long_trader.check_support_bounce_strategy, self.long_trader.check_volatility_scalping_strategy]:
