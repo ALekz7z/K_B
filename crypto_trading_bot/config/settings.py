@@ -8,6 +8,7 @@ BYBIT_CONFIG = {
 }
 
 # === BALANCE-BASED TRADING MODE ===
+INITIAL_BALANCE_USDT = 100.0  # Начальный баланс для торговли (указывается вручную)
 BALANCE_THRESHOLD_USDT = 500  # Threshold to switch between SPOT and FUTURES
 # Mode will be automatically determined: 'SPOT' if balance < threshold, 'FUTURES' otherwise
 

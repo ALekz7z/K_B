@@ -13,7 +13,15 @@ import time
 from typing import Dict, List, Optional
 from enum import Enum
 
-from config.settings import *
+from config.settings import (
+    BYBIT_CONFIG, 
+    BALANCE_THRESHOLD_USDT, 
+    INITIAL_BALANCE_USDT,
+    LOG_LEVEL, 
+    LOG_FILE,
+    ANALYSIS_INTERVAL_MINUTES,
+    PRICE_UPDATE_INTERVAL_SECONDS
+)
 from modules.analyzer import MarketAnalyzer, MarketPhase
 from modules.risk_manager import RiskManager, TradingMode
 from strategies.long_strategies import LongStrategies
@@ -949,29 +957,17 @@ class Config:
 
 
 if __name__ == "__main__":
-    # Get real balance from Bybit account at startup
+    # Use balance from config settings (manual configuration)
     print(f"\n{'='*60}")
     print(f"CRYPTO TRADING BOT - STARTING")
     print(f"{'='*60}")
     
-    # Initialize bot temporarily to fetch real balance
-    temp_bot = CryptoTradingBot(initial_balance=100.0)
-    try:
-        real_balance = temp_bot._get_real_balance()
-        logger.info(f"Real balance fetched from Bybit: {real_balance} USDT")
-    except Exception as e:
-        logger.warning(f"Could not fetch real balance: {e}. Using default 100.0 USDT")
-        real_balance = 100.0
-    
-    initial_balance = real_balance
+    initial_balance = INITIAL_BALANCE_USDT
     
     print(f"Initial Balance: {initial_balance} USDT")
     print(f"Mode Threshold: {BALANCE_THRESHOLD_USDT} USDT")
     print(f"Expected Mode: {'FUTURES' if initial_balance >= BALANCE_THRESHOLD_USDT else 'SPOT'}")
     print(f"{'='*60}\n")
-    
-    # Stop temporary bot and create new one with real balance
-    temp_bot.stop()
     
     bot = CryptoTradingBot(initial_balance=initial_balance)
     try:
