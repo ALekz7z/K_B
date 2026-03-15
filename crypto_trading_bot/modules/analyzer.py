@@ -364,6 +364,7 @@ class MarketAnalyzer:
                 return False, {'score': 0}
             
             # Determine volatility thresholds and data requirements based on trading mode
+            use_daily_data = True  # Default to daily data for spot
             if hasattr(self.config, 'trading_mode'):
                 from modules.risk_manager import TradingMode
                 if self.config.trading_mode == TradingMode.FUTURES:
@@ -371,6 +372,8 @@ class MarketAnalyzer:
                     max_vol = getattr(self.config, 'FUTURES_MAX_VOLATILITY_24H', 0.15)
                     # For futures, use lower data requirement (72 candles * 5min = 6 hours)
                     min_candles_5m = getattr(self.config, 'FUTURES_MIN_CANDLES_FOR_VOL', 72)
+                    # For futures, skip daily data requirement and use 5m directly
+                    use_daily_data = False
                     logger.debug(f"Using FUTURES volatility filter: {min_vol*100:.1f}% - {max_vol*100:.1f}%, min candles: {min_candles_5m}")
                 else:
                     min_vol = getattr(self.config, 'SPOT_MIN_VOLATILITY_24H', 0.03)
@@ -382,12 +385,12 @@ class MarketAnalyzer:
                 max_vol = getattr(self.config, 'MAX_VOLATILITY_24H', 0.08)
                 min_candles_5m = 288
             
-            # Try to get daily candles first (limit=2 for 24h change calculation)
-            ohlcv_daily = self._get_ohlcv(symbol, "1d", limit=2)
+            price_change = 0
+            atr_percent = 0
             
-            # If not enough daily data, fall back to 5m candles
-            if not ohlcv_daily or len(ohlcv_daily) < 2:
-                logger.debug(f"Insufficient daily data for {symbol}, trying 5m candles...")
+            # For futures, use 5m candles directly; for spot, try daily first
+            if not use_daily_data:
+                # Futures mode: use 5m candles directly
                 ohlcv_5m = self._get_ohlcv(symbol, "5m", limit=min_candles_5m)
                 if not ohlcv_5m or len(ohlcv_5m) < min_candles_5m:
                     logger.warning(f"Insufficient historical data for {symbol} volatility check - need at least {min_candles_5m} 5m candles")
@@ -402,14 +405,34 @@ class MarketAnalyzer:
                 current_price = ohlcv_5m[-1]['close']
                 atr_percent = (current_atr / current_price * 100) if current_price > 0 else 0
             else:
-                # Use daily data as before
-                price_change = abs(ohlcv_daily[-1]['close'] - ohlcv_daily[-2]['close']) / ohlcv_daily[-2]['close']
+                # Spot mode: try daily candles first (limit=2 for 24h change calculation)
+                ohlcv_daily = self._get_ohlcv(symbol, "1d", limit=2)
                 
-                # Calculate ATR
-                atr = self._calculate_atr(ohlcv_daily, self.config.ATR_PERIOD)
-                current_atr = atr[-1] if len(atr) > 0 else 0
-                current_price = ohlcv_daily[-1]['close']
-                atr_percent = (current_atr / current_price * 100) if current_price > 0 else 0
+                # If not enough daily data, fall back to 5m candles
+                if not ohlcv_daily or len(ohlcv_daily) < 2:
+                    logger.debug(f"Insufficient daily data for {symbol}, trying 5m candles...")
+                    ohlcv_5m = self._get_ohlcv(symbol, "5m", limit=min_candles_5m)
+                    if not ohlcv_5m or len(ohlcv_5m) < min_candles_5m:
+                        logger.warning(f"Insufficient historical data for {symbol} volatility check - need at least {min_candles_5m} 5m candles")
+                        return False, {'score': 0}
+                    
+                    # Calculate price change from 5m data (compare first and last candle in the window)
+                    price_change = abs(ohlcv_5m[-1]['close'] - ohlcv_5m[0]['close']) / ohlcv_5m[0]['close']
+                    
+                    # Calculate ATR from 5m data
+                    atr = self._calculate_atr(ohlcv_5m, self.config.ATR_PERIOD)
+                    current_atr = atr[-1] if len(atr) > 0 else 0
+                    current_price = ohlcv_5m[-1]['close']
+                    atr_percent = (current_atr / current_price * 100) if current_price > 0 else 0
+                else:
+                    # Use daily data as before
+                    price_change = abs(ohlcv_daily[-1]['close'] - ohlcv_daily[-2]['close']) / ohlcv_daily[-2]['close']
+                    
+                    # Calculate ATR
+                    atr = self._calculate_atr(ohlcv_daily, self.config.ATR_PERIOD)
+                    current_atr = atr[-1] if len(atr) > 0 else 0
+                    current_price = ohlcv_daily[-1]['close']
+                    atr_percent = (current_atr / current_price * 100) if current_price > 0 else 0
             
             score = 0
             if min_vol <= price_change <= max_vol:
