@@ -326,11 +326,21 @@ class CryptoTradingBot:
                     
                 ticker_data = tickers_list[0]
                 # Return full dictionary with all needed fields
+                # Safely convert string values to float, handling empty strings
+                def safe_float(value, default=0.0):
+                    try:
+                        if value is None or value == '':
+                            return default
+                        return float(value)
+                    except (ValueError, TypeError):
+                        logger.warning(f"Could not convert '{value}' to float for {symbol}, using default {default}")
+                        return default
+                
                 return {
-                    'lastPrice': float(ticker_data.get("lastPrice", 0)),
-                    'bid1Price': float(ticker_data.get("bid1Price", 0)),
-                    'ask1Price': float(ticker_data.get("ask1Price", 0)),
-                    'volume24h': float(ticker_data.get("volume24h", 0))
+                    'lastPrice': safe_float(ticker_data.get("lastPrice"), 0.0),
+                    'bid1Price': safe_float(ticker_data.get("bid1Price"), 0.0),
+                    'ask1Price': safe_float(ticker_data.get("ask1Price"), 0.0),
+                    'volume24h': safe_float(ticker_data.get("volume24h"), 0.0)
                 }
             elif isinstance(response, dict):
                 # Mock client or old API format - return as dict
