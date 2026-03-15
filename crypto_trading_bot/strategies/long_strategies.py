@@ -24,59 +24,37 @@ class LongStrategies:
     
     def check_breakout_strategy(self, symbol: str, ohlcv: List[Dict]) -> Optional[Dict]:
         """
-        Strategy 1: Breakout above resistance
+        Агрессивная стратегия пробоя для скальпинга.
+        Минимум фильтров для максимального количества сделок.
         
-        Conditions (ALL must be true):
-        1. Price breaks above key resistance level (previous local high)
-        2. Volume on breakout > 150% of average volume (last 20 candles)
-        3. EMA 9 > EMA 21 (trend confirmation)
-        4. RSI <= 70 (not overbought)
+        Conditions:
+        1. Price breaks above local high (last 5 candles)
+        2. EMA 9 > EMA 21 (minimal trend confirmation)
         """
         try:
-            if len(ohlcv) < 50:
-                logger.debug(f"[{symbol}] Breakout: Insufficient data ({len(ohlcv)} < 50)")
+            if len(ohlcv) < 20:
                 return None
             
             prices = np.array([c['close'] for c in ohlcv])
-            volumes = np.array([c['volume'] for c in ohlcv])
             highs = np.array([c['high'] for c in ohlcv])
             
             # Calculate indicators
             ema9 = self._calculate_ema(prices, 9)
             ema21 = self._calculate_ema(prices, 21)
-            rsi = self._calculate_rsi(prices, self.config.RSI_PERIOD)
             
             current_price = prices[-1]
-            current_volume = volumes[-1]
-            avg_volume = np.mean(volumes[-20:-1])
             
-            # Find resistance level (previous local high)
-            resistance = np.max(highs[-20:-1])
+            # Find local max (last 5 candles)
+            lookback = 5
+            local_max = np.max(highs[-lookback-1:-1])
             
-            # Check conditions
-            breakout = current_price > resistance
-            volume_confirmed = current_volume > avg_volume * 1.5
+            # Check conditions - максимально упрощенные
+            breakout = current_price > local_max
             trend_confirmed = ema9[-1] > ema21[-1]
-            rsi_ok = rsi[-1] <= 70
             
-            # Log rejection reasons if any condition fails
-            if not (breakout and volume_confirmed and trend_confirmed and rsi_ok):
-                reasons = []
-                if not breakout:
-                    reasons.append(f"price {current_price:.4f} <= resistance {resistance:.4f}")
-                if not volume_confirmed:
-                    vol_ratio = current_volume / avg_volume if avg_volume > 0 else 0
-                    reasons.append(f"volume ratio {vol_ratio:.2f}x < 1.5x")
-                if not trend_confirmed:
-                    reasons.append(f"EMA9 {ema9[-1]:.4f} <= EMA21 {ema21[-1]:.4f}")
-                if not rsi_ok:
-                    reasons.append(f"RSI {rsi[-1]:.1f} > 70 (overbought)")
-                logger.debug(f"[{symbol}] Breakout rejected: {', '.join(reasons)}")
-            
-            if breakout and volume_confirmed and trend_confirmed and rsi_ok:
-                logger.info(f"Breakout strategy triggered for {symbol}")
+            if breakout and trend_confirmed:
+                logger.info(f"[AGGRESSIVE LONG] {symbol}: Breakout scalp at {current_price:.4f} (local max: {local_max:.4f})")
                 
-                # Calculate position size
                 position_size = self._calculate_position_size(symbol, current_price)
                 
                 return {
@@ -87,169 +65,44 @@ class LongStrategies:
                     'stop_loss': current_price * (1 - self.config.STOP_LOSS_PERCENT / 100),
                     'take_profit_1': current_price + self.config.TAKE_PROFIT_1_USDT,
                     'take_profit_2': current_price + self.config.TAKE_PROFIT_2_USDT,
-                    'strategy': 'breakout',
-                    'reason': f'Breakout above {resistance:.4f} with volume confirmation'
+                    'strategy': 'aggressive_breakout',
+                    'reason': f'Aggressive breakout above {local_max:.4f}'
                 }
             
             return None
             
         except Exception as e:
-            logger.error(f"Error in breakout strategy for {symbol}: {e}")
+            logger.error(f"Error in aggressive breakout strategy for {symbol}: {e}")
             return None
     
     def check_support_bounce_strategy(self, symbol: str, ohlcv: List[Dict]) -> Optional[Dict]:
         """
-        Strategy 2: Bounce from support
+        Агрессивный отскок от поддержки для скальпинга.
+        Минимум фильтров для максимального количества сделок.
         
-        Conditions (ALL must be true):
-        1. Price bounces from key support (previous local low or Fibonacci 61.8%)
-        2. RSI between 25 and 35
-        3. Volume on bounce > 130% of average
-        4. Bullish candle forms (green with lower shadow)
+        Conditions:
+        1. Price touches lower Bollinger Band
+        2. Price starts moving up (current > low)
         """
         try:
-            if len(ohlcv) < 50:
-                logger.debug(f"[{symbol}] Support bounce: Insufficient data ({len(ohlcv)} < 50)")
+            if len(ohlcv) < 20:
                 return None
             
             prices = np.array([c['close'] for c in ohlcv])
-            volumes = np.array([c['volume'] for c in ohlcv])
             lows = np.array([c['low'] for c in ohlcv])
-            highs = np.array([c['high'] for c in ohlcv])
-            opens = np.array([c['open'] for c in ohlcv])
-            
-            # Calculate RSI
-            rsi = self._calculate_rsi(prices, self.config.RSI_PERIOD)
-            
-            current_price = prices[-1]
-            current_volume = volumes[-1]
-            avg_volume = np.mean(volumes[-20:-1])
-            
-            # Find support level (previous local low)
-            support = np.min(lows[-20:-1])
-            
-            # Calculate Fibonacci levels from recent swing
-            recent_high = np.max(highs[-50:-1])
-            recent_low = np.min(lows[-50:-1])
-            fib_618 = recent_high - (recent_high - recent_low) * 0.618
-            
-            # Use the higher of the two support levels
-            key_support = max(support, fib_618)
-            
-            # Check if price bounced from support
-            price_near_support = abs(current_price - key_support) / key_support < 0.01
-            prev_low = lows[-2]
-            bounce = current_price > prev_low and prev_low <= key_support * 1.005
-            
-            # Check RSI condition
-            rsi_ok = 25 < rsi[-1] < 35
-            
-            # Check volume condition
-            volume_confirmed = current_volume > avg_volume * 1.3
-            
-            # Check for bullish candle (green with lower shadow)
-            current_open = opens[-1]
-            current_close = prices[-1]
-            current_low = lows[-1]
-            is_bullish = current_close > current_open
-            has_lower_shadow = (current_open - current_low) > (current_close - current_open) * 0.5
-            
-            # Log rejection reasons if any condition fails
-            if not (bounce and rsi_ok and volume_confirmed and is_bullish and has_lower_shadow):
-                reasons = []
-                if not bounce:
-                    reasons.append(f"no bounce (price {current_price:.4f}, prev_low {prev_low:.4f})")
-                if not rsi_ok:
-                    reasons.append(f"RSI {rsi[-1]:.1f} not in 25-35 range")
-                if not volume_confirmed:
-                    vol_ratio = current_volume / avg_volume if avg_volume > 0 else 0
-                    reasons.append(f"volume ratio {vol_ratio:.2f}x < 1.3x")
-                if not is_bullish:
-                    reasons.append("bearish candle")
-                if not has_lower_shadow:
-                    reasons.append("no lower shadow")
-                logger.debug(f"[{symbol}] Support bounce rejected: {', '.join(reasons)}")
-            
-            if bounce and rsi_ok and volume_confirmed and is_bullish and has_lower_shadow:
-                logger.info(f"Support bounce strategy triggered for {symbol}")
-                
-                position_size = self._calculate_position_size(symbol, current_price)
-                
-                return {
-                    'action': 'BUY',
-                    'symbol': symbol,
-                    'entry_price': current_price,
-                    'position_size': position_size,
-                    'stop_loss': key_support * (1 - 0.015),  # 1.5% below support
-                    'take_profit_1': current_price + self.config.TAKE_PROFIT_1_USDT,
-                    'take_profit_2': current_price + self.config.TAKE_PROFIT_2_USDT,
-                    'strategy': 'support_bounce',
-                    'reason': f'Bounce from support at {key_support:.4f}'
-                }
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error in support bounce strategy: {e}")
-            return None
-    
-    def check_volatility_scalping_strategy(self, symbol: str, ohlcv: List[Dict]) -> Optional[Dict]:
-        """
-        Strategy 3: Volatility scalping
-        
-        Conditions (ALL must be true):
-        1. Price touches or near lower Bollinger Band
-        2. Bollinger Bands compressed (width < average of last 50 periods)
-        3. Volume starting to increase (> 120% of average)
-        4. Previous 3 candles were red (bearish)
-        """
-        try:
-            if len(ohlcv) < 100:
-                logger.debug(f"[{symbol}] Volatility scalp: Insufficient data ({len(ohlcv)} < 100)")
-                return None
-            
-            prices = np.array([c['close'] for c in ohlcv])
-            volumes = np.array([c['volume'] for c in ohlcv])
-            opens = np.array([c['open'] for c in ohlcv])
             
             # Calculate Bollinger Bands
             bb_upper, bb_middle, bb_lower = self._calculate_bollinger_bands(prices)
             
             current_price = prices[-1]
-            current_volume = volumes[-1]
-            avg_volume = np.mean(volumes[-20:-1])
+            current_low = lows[-1]
             
-            # Check if bands are compressed
-            current_bb_width = (bb_upper[-1] - bb_lower[-1]) / bb_middle[-1]
-            avg_bb_width = np.mean([(bb_upper[i] - bb_lower[i]) / bb_middle[i] 
-                                   for i in range(-51, -1)])
-            bands_compressed = current_bb_width < avg_bb_width
+            # Check if price touched lower band and bouncing
+            touched_lower = current_low <= bb_lower[-1] * 1.002  # 0.2% tolerance
+            bouncing = current_price > current_low
             
-            # Check if price at lower band
-            at_lower_band = current_price <= bb_lower[-1] * 1.002  # Within 0.2%
-            
-            # Check volume increase
-            volume_increasing = current_volume > avg_volume * 1.2
-            
-            # Check previous 3 candles were red
-            prev_3_red = all(opens[i] > prices[i] for i in range(-4, -1))
-            
-            # Log rejection reasons if any condition fails
-            if not (at_lower_band and bands_compressed and volume_increasing and prev_3_red):
-                reasons = []
-                if not at_lower_band:
-                    reasons.append(f"price {current_price:.4f} not at lower BB {bb_lower[-1]:.4f}")
-                if not bands_compressed:
-                    reasons.append(f"BB width {current_bb_width:.4f} >= avg {avg_bb_width:.4f}")
-                if not volume_increasing:
-                    vol_ratio = current_volume / avg_volume if avg_volume > 0 else 0
-                    reasons.append(f"volume ratio {vol_ratio:.2f}x < 1.2x")
-                if not prev_3_red:
-                    reasons.append("previous 3 candles not all red")
-                logger.debug(f"[{symbol}] Volatility scalp rejected: {', '.join(reasons)}")
-            
-            if at_lower_band and bands_compressed and volume_increasing and prev_3_red:
-                logger.info(f"Volatility scalping strategy triggered for {symbol}")
+            if touched_lower and bouncing:
+                logger.info(f"[AGGRESSIVE LONG] {symbol}: Support bounce scalp at {current_price:.4f} (BB lower: {bb_lower[-1]:.4f})")
                 
                 position_size = self._calculate_position_size(symbol, current_price)
                 
@@ -258,17 +111,69 @@ class LongStrategies:
                     'symbol': symbol,
                     'entry_price': current_price,
                     'position_size': position_size,
-                    'stop_loss': current_price * (1 - 0.01),  # 1% below entry
+                    'stop_loss': current_price * (1 - self.config.STOP_LOSS_PERCENT / 100),
                     'take_profit_1': current_price + self.config.TAKE_PROFIT_1_USDT,
                     'take_profit_2': current_price + self.config.TAKE_PROFIT_2_USDT,
-                    'strategy': 'volatility_scalp',
-                    'reason': f'Price at lower BB ({bb_lower[-1]:.4f}) with compression'
+                    'strategy': 'aggressive_bounce',
+                    'reason': f'Bounce from BB lower at {bb_lower[-1]:.4f}'
                 }
             
             return None
             
         except Exception as e:
-            logger.error(f"Error in volatility scalping strategy for {symbol}: {e}")
+            logger.error(f"Error in aggressive bounce strategy: {e}")
+            return None
+    
+    def check_volatility_scalping_strategy(self, symbol: str, ohlcv: List[Dict]) -> Optional[Dict]:
+        """
+        Агрессивный скальпинг волатильности.
+        Минимум фильтров для максимального количества сделок.
+        
+        Conditions:
+        1. Price near upper Bollinger Band (momentum)
+        2. Bands expanding (volatility increasing)
+        """
+        try:
+            if len(ohlcv) < 20:
+                return None
+            
+            prices = np.array([c['close'] for c in ohlcv])
+            
+            # Calculate Bollinger Bands
+            bb_upper, bb_middle, bb_lower = self._calculate_bollinger_bands(prices)
+            
+            current_price = prices[-1]
+            
+            # Check if bands are expanding (volatility increasing)
+            current_bb_width = (bb_upper[-1] - bb_lower[-1]) / bb_middle[-1]
+            avg_bb_width = np.mean([(bb_upper[i] - bb_lower[i]) / bb_middle[i] 
+                                   for i in range(-20, -1)])
+            bands_expanding = current_bb_width > avg_bb_width * 0.9
+            
+            # Check if price has momentum (above middle band and near upper)
+            has_momentum = current_price > bb_middle[-1] and current_price >= bb_upper[-1] * 0.98
+            
+            if bands_expanding and has_momentum:
+                logger.info(f"[AGGRESSIVE LONG] {symbol}: Volatility scalp at {current_price:.4f} (BB expanding)")
+                
+                position_size = self._calculate_position_size(symbol, current_price)
+                
+                return {
+                    'action': 'BUY',
+                    'symbol': symbol,
+                    'entry_price': current_price,
+                    'position_size': position_size,
+                    'stop_loss': current_price * (1 - self.config.STOP_LOSS_PERCENT / 100),
+                    'take_profit_1': current_price + self.config.TAKE_PROFIT_1_USDT,
+                    'take_profit_2': current_price + self.config.TAKE_PROFIT_2_USDT,
+                    'strategy': 'aggressive_volatility',
+                    'reason': f'Volatility scalp with expanding BB'
+                }
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error in aggressive volatility strategy for {symbol}: {e}")
             return None
     
     def manage_position(self, position: Dict, current_price: float) -> Dict:

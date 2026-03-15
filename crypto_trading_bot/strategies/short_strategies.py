@@ -24,57 +24,36 @@ class ShortStrategies:
     
     def check_breakdown_strategy(self, symbol: str, ohlcv: List[Dict]) -> Optional[Dict]:
         """
-        Strategy 1: Breakdown below support
+        Агрессивная стратегия пробоя поддержки для скальпинга SHORT.
+        Минимум фильтров для максимального количества сделок.
         
-        Conditions (ALL must be true):
-        1. Price breaks below key support level (previous local low)
-        2. Volume on breakdown > 150% of average volume (last 20 candles)
-        3. EMA 9 < EMA 21 (trend confirmation)
-        4. RSI >= 30 (not oversold)
+        Conditions:
+        1. Price breaks below local low (last 5 candles)
+        2. EMA 9 < EMA 21 (minimal trend confirmation)
         """
         try:
-            if len(ohlcv) < 50:
-                logger.debug(f"[{symbol}] Breakdown: Insufficient data ({len(ohlcv)} < 50)")
+            if len(ohlcv) < 20:
                 return None
             
             prices = np.array([c['close'] for c in ohlcv])
-            volumes = np.array([c['volume'] for c in ohlcv])
             lows = np.array([c['low'] for c in ohlcv])
             
             # Calculate indicators
             ema9 = self._calculate_ema(prices, 9)
             ema21 = self._calculate_ema(prices, 21)
-            rsi = self._calculate_rsi(prices, self.config.RSI_PERIOD)
             
             current_price = prices[-1]
-            current_volume = volumes[-1]
-            avg_volume = np.mean(volumes[-20:-1])
             
-            # Find support level (previous local low)
-            support = np.min(lows[-20:-1])
+            # Find local min (last 5 candles)
+            lookback = 5
+            local_min = np.min(lows[-lookback-1:-1])
             
-            # Check conditions
-            breakdown = current_price < support
-            volume_confirmed = current_volume > avg_volume * 1.5
+            # Check conditions - максимально упрощенные
+            breakdown = current_price < local_min
             trend_confirmed = ema9[-1] < ema21[-1]
-            rsi_ok = rsi[-1] >= 30
             
-            # Log rejection reasons if any condition fails
-            if not (breakdown and volume_confirmed and trend_confirmed and rsi_ok):
-                reasons = []
-                if not breakdown:
-                    reasons.append(f"price {current_price:.4f} >= support {support:.4f}")
-                if not volume_confirmed:
-                    vol_ratio = current_volume / avg_volume if avg_volume > 0 else 0
-                    reasons.append(f"volume ratio {vol_ratio:.2f}x < 1.5x")
-                if not trend_confirmed:
-                    reasons.append(f"EMA9 {ema9[-1]:.4f} >= EMA21 {ema21[-1]:.4f}")
-                if not rsi_ok:
-                    reasons.append(f"RSI {rsi[-1]:.1f} < 30 (oversold)")
-                logger.debug(f"[{symbol}] Breakdown rejected: {', '.join(reasons)}")
-            
-            if breakdown and volume_confirmed and trend_confirmed and rsi_ok:
-                logger.info(f"Breakdown strategy triggered for {symbol}")
+            if breakdown and trend_confirmed:
+                logger.info(f"[AGGRESSIVE SHORT] {symbol}: Breakdown scalp at {current_price:.4f} (local min: {local_min:.4f})")
                 
                 position_size = self._calculate_position_size(symbol, current_price)
                 
@@ -86,175 +65,44 @@ class ShortStrategies:
                     'stop_loss': current_price * (1 + self.config.STOP_LOSS_PERCENT / 100),
                     'take_profit_1': current_price - self.config.TAKE_PROFIT_1_USDT,
                     'take_profit_2': current_price - self.config.TAKE_PROFIT_2_USDT,
-                    'strategy': 'breakdown',
-                    'reason': f'Breakdown below {support:.4f} with volume confirmation'
+                    'strategy': 'aggressive_breakdown',
+                    'reason': f'Aggressive breakdown below {local_min:.4f}'
                 }
             
             return None
             
         except Exception as e:
-            logger.error(f"Error in breakdown strategy for {symbol}: {e}")
+            logger.error(f"Error in aggressive breakdown strategy for {symbol}: {e}")
             return None
     
     def check_resistance_rejection_strategy(self, symbol: str, ohlcv: List[Dict]) -> Optional[Dict]:
         """
-        Strategy 2: Rejection from resistance
+        Агрессивный отскок от сопротивления для скальпинга SHORT.
+        Минимум фильтров для максимального количества сделок.
         
-        Conditions (ALL must be true):
-        1. Price rejected from key resistance (previous local high or Fibonacci 38.2%)
-        2. RSI between 65 and 75
-        3. Volume on rejection > 130% of average
-        4. Bearish candle forms (red with upper shadow)
+        Conditions:
+        1. Price touches upper Bollinger Band
+        2. Price starts moving down (current < high)
         """
         try:
-            if len(ohlcv) < 50:
-                logger.debug(f"[{symbol}] Resistance rejection: Insufficient data ({len(ohlcv)} < 50)")
+            if len(ohlcv) < 20:
                 return None
             
             prices = np.array([c['close'] for c in ohlcv])
-            volumes = np.array([c['volume'] for c in ohlcv])
             highs = np.array([c['high'] for c in ohlcv])
-            lows = np.array([c['low'] for c in ohlcv])
-            opens = np.array([c['open'] for c in ohlcv])
-            
-            # Calculate RSI
-            rsi = self._calculate_rsi(prices, self.config.RSI_PERIOD)
-            
-            current_price = prices[-1]
-            current_volume = volumes[-1]
-            avg_volume = np.mean(volumes[-20:-1])
-            
-            # Find resistance level (previous local high)
-            resistance = np.max(highs[-20:-1])
-            
-            # Calculate Fibonacci levels from recent swing
-            recent_high = np.max(highs[-50:-1])
-            recent_low = np.min(lows[-50:-1])
-            fib_382 = recent_low + (recent_high - recent_low) * 0.382
-            
-            # Use the lower of the two resistance levels
-            key_resistance = min(resistance, fib_382)
-            
-            # Check if price rejected from resistance
-            prev_high = highs[-2]
-            rejection = current_price < prev_high and prev_high >= key_resistance * 0.995
-            
-            # Check RSI condition
-            rsi_ok = 65 < rsi[-1] < 75
-            
-            # Check volume condition
-            volume_confirmed = current_volume > avg_volume * 1.3
-            
-            # Check for bearish candle (red with upper shadow)
-            current_open = opens[-1]
-            current_close = prices[-1]
-            current_high = highs[-1]
-            is_bearish = current_close < current_open
-            has_upper_shadow = (current_high - current_open) > (current_open - current_close) * 0.5
-            
-            # Log rejection reasons if any condition fails
-            if not (rejection and rsi_ok and volume_confirmed and is_bearish and has_upper_shadow):
-                reasons = []
-                if not rejection:
-                    reasons.append(f"no rejection (price {current_price:.4f}, prev_high {prev_high:.4f})")
-                if not rsi_ok:
-                    reasons.append(f"RSI {rsi[-1]:.1f} not in 65-75 range")
-                if not volume_confirmed:
-                    vol_ratio = current_volume / avg_volume if avg_volume > 0 else 0
-                    reasons.append(f"volume ratio {vol_ratio:.2f}x < 1.3x")
-                if not is_bearish:
-                    reasons.append("bullish candle")
-                if not has_upper_shadow:
-                    reasons.append("no upper shadow")
-                logger.debug(f"[{symbol}] Resistance rejection rejected: {', '.join(reasons)}")
-            
-            if rejection and rsi_ok and volume_confirmed and is_bearish and has_upper_shadow:
-                logger.info(f"Resistance rejection strategy triggered for {symbol}")
-                
-                position_size = self._calculate_position_size(symbol, current_price)
-                
-                return {
-                    'action': 'SELL',
-                    'symbol': symbol,
-                    'entry_price': current_price,
-                    'position_size': position_size,
-                    'stop_loss': key_resistance * (1 + 0.015),  # 1.5% above resistance
-                    'take_profit_1': current_price - self.config.TAKE_PROFIT_1_USDT,
-                    'take_profit_2': current_price - self.config.TAKE_PROFIT_2_USDT,
-                    'strategy': 'resistance_rejection',
-                    'reason': f'Rejection from resistance at {key_resistance:.4f}'
-                }
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error in resistance rejection strategy for {symbol}: {e}")
-            return None
-    
-    def check_overbought_scalping_strategy(self, symbol: str, ohlcv: List[Dict]) -> Optional[Dict]:
-        """
-        Strategy 3: Overbought scalping
-        
-        Conditions (ALL must be true):
-        1. Price touches or near upper Bollinger Band
-        2. Stochastic above 80 (overbought)
-        3. Bollinger Bands compressed (width < average of last 50 periods)
-        4. Previous 3 candles were green (bullish)
-        """
-        try:
-            if len(ohlcv) < 100:
-                logger.debug(f"[{symbol}] Overbought scalp: Insufficient data ({len(ohlcv)} < 100)")
-                return None
-            
-            prices = np.array([c['close'] for c in ohlcv])
-            volumes = np.array([c['volume'] for c in ohlcv])
-            opens = np.array([c['open'] for c in ohlcv])
-            highs = np.array([c['high'] for c in ohlcv])
-            lows = np.array([c['low'] for c in ohlcv])
             
             # Calculate Bollinger Bands
             bb_upper, bb_middle, bb_lower = self._calculate_bollinger_bands(prices)
             
-            # Calculate Stochastic
-            stoch_k, stoch_d = self._calculate_stochastic(highs, lows, prices)
-            
             current_price = prices[-1]
-            current_volume = volumes[-1]
-            avg_volume = np.mean(volumes[-20:-1])
+            current_high = highs[-1]
             
-            # Check if bands are compressed
-            current_bb_width = (bb_upper[-1] - bb_lower[-1]) / bb_middle[-1]
-            avg_bb_width = np.mean([(bb_upper[i] - bb_lower[i]) / bb_middle[i] 
-                                   for i in range(-51, -1)])
-            bands_compressed = current_bb_width < avg_bb_width
+            # Check if price touched upper band and rejecting
+            touched_upper = current_high >= bb_upper[-1] * 0.998  # 0.2% tolerance
+            rejecting = current_price < current_high
             
-            # Check if price at upper band
-            at_upper_band = current_price >= bb_upper[-1] * 0.998  # Within 0.2%
-            
-            # Check overbought condition
-            overbought = stoch_k[-1] > 80
-            
-            # Check volume increase
-            volume_increasing = current_volume > avg_volume * 1.2
-            
-            # Check previous 3 candles were green
-            prev_3_green = all(opens[i] < prices[i] for i in range(-4, -1))
-            
-            # Log rejection reasons if any condition fails
-            if not (at_upper_band and overbought and bands_compressed and prev_3_green):
-                reasons = []
-                if not at_upper_band:
-                    reasons.append(f"price {current_price:.4f} not at upper BB {bb_upper[-1]:.4f}")
-                if not overbought:
-                    reasons.append(f"Stochastic K {stoch_k[-1]:.1f} <= 80")
-                if not bands_compressed:
-                    reasons.append(f"BB width {current_bb_width:.4f} >= avg {avg_bb_width:.4f}")
-                if not prev_3_green:
-                    reasons.append("previous 3 candles not all green")
-                logger.debug(f"[{symbol}] Overbought scalp rejected: {', '.join(reasons)}")
-            
-            if at_upper_band and overbought and bands_compressed and prev_3_green:
-                logger.info(f"Overbought scalping strategy triggered for {symbol}")
+            if touched_upper and rejecting:
+                logger.info(f"[AGGRESSIVE SHORT] {symbol}: Resistance rejection scalp at {current_price:.4f} (BB upper: {bb_upper[-1]:.4f})")
                 
                 position_size = self._calculate_position_size(symbol, current_price)
                 
@@ -263,17 +111,69 @@ class ShortStrategies:
                     'symbol': symbol,
                     'entry_price': current_price,
                     'position_size': position_size,
-                    'stop_loss': current_price * (1 + 0.01),  # 1% above entry
+                    'stop_loss': current_price * (1 + self.config.STOP_LOSS_PERCENT / 100),
                     'take_profit_1': current_price - self.config.TAKE_PROFIT_1_USDT,
                     'take_profit_2': current_price - self.config.TAKE_PROFIT_2_USDT,
-                    'strategy': 'overbought_scalp',
-                    'reason': f'Price at upper BB ({bb_upper[-1]:.4f}) and overbought'
+                    'strategy': 'aggressive_rejection',
+                    'reason': f'Rejection from BB upper at {bb_upper[-1]:.4f}'
                 }
             
             return None
             
         except Exception as e:
-            logger.error(f"Error in overbought scalping strategy for {symbol}: {e}")
+            logger.error(f"Error in aggressive rejection strategy for {symbol}: {e}")
+            return None
+    
+    def check_overbought_scalping_strategy(self, symbol: str, ohlcv: List[Dict]) -> Optional[Dict]:
+        """
+        Агрессивный скальпинг перекупленности для SHORT.
+        Минимум фильтров для максимального количества сделок.
+        
+        Conditions:
+        1. Price near lower Bollinger Band (momentum down)
+        2. Bands expanding (volatility increasing)
+        """
+        try:
+            if len(ohlcv) < 20:
+                return None
+            
+            prices = np.array([c['close'] for c in ohlcv])
+            
+            # Calculate Bollinger Bands
+            bb_upper, bb_middle, bb_lower = self._calculate_bollinger_bands(prices)
+            
+            current_price = prices[-1]
+            
+            # Check if bands are expanding (volatility increasing)
+            current_bb_width = (bb_upper[-1] - bb_lower[-1]) / bb_middle[-1]
+            avg_bb_width = np.mean([(bb_upper[i] - bb_lower[i]) / bb_middle[i] 
+                                   for i in range(-20, -1)])
+            bands_expanding = current_bb_width > avg_bb_width * 0.9
+            
+            # Check if price has downward momentum (below middle band and near lower)
+            has_momentum = current_price < bb_middle[-1] and current_price <= bb_lower[-1] * 1.02
+            
+            if bands_expanding and has_momentum:
+                logger.info(f"[AGGRESSIVE SHORT] {symbol}: Overbought scalp at {current_price:.4f} (BB expanding down)")
+                
+                position_size = self._calculate_position_size(symbol, current_price)
+                
+                return {
+                    'action': 'SELL',
+                    'symbol': symbol,
+                    'entry_price': current_price,
+                    'position_size': position_size,
+                    'stop_loss': current_price * (1 + self.config.STOP_LOSS_PERCENT / 100),
+                    'take_profit_1': current_price - self.config.TAKE_PROFIT_1_USDT,
+                    'take_profit_2': current_price - self.config.TAKE_PROFIT_2_USDT,
+                    'strategy': 'aggressive_overbought',
+                    'reason': f'Volatility scalp with expanding BB down'
+                }
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error in aggressive overbought strategy for {symbol}: {e}")
             return None
     
     def manage_position(self, position: Dict, current_price: float) -> Dict:
