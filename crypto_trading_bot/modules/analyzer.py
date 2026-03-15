@@ -297,7 +297,7 @@ class MarketAnalyzer:
         return coin_scores[:self.config.TOP_COINS_TO_SELECT]
     
     def _check_liquidity(self, symbol: str) -> Tuple[bool, Dict]:
-        """Check liquidity filter: volume > 50M USDT, spread < 0.1%"""
+        """Check liquidity filter: volume > 50M USDT (SPOT) or 10M USDT (FUTURES), spread < 0.1%"""
         try:
             # Get ticker data - handle both dict and float return types
             if self._get_ticker is None:
@@ -325,13 +325,26 @@ class MarketAnalyzer:
             else:
                 spread = 100
             
+            # Determine min volume based on trading mode
+            # Check for mode-specific settings first, then fall back to general setting
+            if hasattr(self.config, 'trading_mode'):
+                from modules.risk_manager import TradingMode
+                if self.config.trading_mode == TradingMode.FUTURES:
+                    min_volume = getattr(self.config, 'FUTURES_MIN_VOLUME_24H_USDT', 10000000)
+                    logger.debug(f"Using FUTURES min volume filter: {min_volume / 1000000:.1f}M USDT")
+                else:
+                    min_volume = getattr(self.config, 'SPOT_MIN_VOLUME_24H_USDT', 50000000)
+                    logger.debug(f"Using SPOT min volume filter: {min_volume / 1000000:.1f}M USDT")
+            else:
+                min_volume = getattr(self.config, 'MIN_VOLUME_24H_USDT', 50000000)
+            
             score = 0
-            if volume_24h >= self.config.MIN_VOLUME_24H_USDT:
+            if volume_24h >= min_volume:
                 score += 20
             if spread <= self.config.MAX_SPREAD_PERCENT:
                 score += 10
             
-            passed = volume_24h >= self.config.MIN_VOLUME_24H_USDT and spread <= self.config.MAX_SPREAD_PERCENT
+            passed = volume_24h >= min_volume and spread <= self.config.MAX_SPREAD_PERCENT
             
             return passed, {
                 'score': score,
@@ -350,27 +363,57 @@ class MarketAnalyzer:
                 logger.error(f"No OHLCV function available for {symbol}")
                 return False, {'score': 0}
             
-            ohlcv = self._get_ohlcv(symbol, "1d", limit=2)
-            if not ohlcv or len(ohlcv) < 2:
-                logger.warning(f"Insufficient historical data for {symbol} volatility check - need at least 2 daily candles")
-                return False, {'score': 0}
+            # Try to get daily candles first (limit=2 for 24h change calculation)
+            ohlcv_daily = self._get_ohlcv(symbol, "1d", limit=2)
             
-            price_change = abs(ohlcv[-1]['close'] - ohlcv[-2]['close']) / ohlcv[-2]['close']
+            # If not enough daily data, fall back to 5m candles and calculate 24h change from them
+            if not ohlcv_daily or len(ohlcv_daily) < 2:
+                logger.debug(f"Insufficient daily data for {symbol}, trying 5m candles...")
+                ohlcv_5m = self._get_ohlcv(symbol, "5m", limit=288)  # 288 * 5min = 24h
+                if not ohlcv_5m or len(ohlcv_5m) < 288:
+                    logger.warning(f"Insufficient historical data for {symbol} volatility check - need at least 24h of data")
+                    return False, {'score': 0}
+                
+                # Calculate price change from 5m data (compare first and last candle in 24h window)
+                price_change = abs(ohlcv_5m[-1]['close'] - ohlcv_5m[0]['close']) / ohlcv_5m[0]['close']
+                
+                # Calculate ATR from 5m data
+                atr = self._calculate_atr(ohlcv_5m, self.config.ATR_PERIOD)
+                current_atr = atr[-1] if len(atr) > 0 else 0
+                current_price = ohlcv_5m[-1]['close']
+                atr_percent = (current_atr / current_price * 100) if current_price > 0 else 0
+            else:
+                # Use daily data as before
+                price_change = abs(ohlcv_daily[-1]['close'] - ohlcv_daily[-2]['close']) / ohlcv_daily[-2]['close']
+                
+                # Calculate ATR
+                atr = self._calculate_atr(ohlcv_daily, self.config.ATR_PERIOD)
+                current_atr = atr[-1] if len(atr) > 0 else 0
+                current_price = ohlcv_daily[-1]['close']
+                atr_percent = (current_atr / current_price * 100) if current_price > 0 else 0
             
-            # Calculate ATR
-            atr = self._calculate_atr(ohlcv, self.config.ATR_PERIOD)
-            current_atr = atr[-1] if len(atr) > 0 else 0
-            current_price = ohlcv[-1]['close']
-            atr_percent = (current_atr / current_price * 100) if current_price > 0 else 0
+            # Determine volatility thresholds based on trading mode
+            if hasattr(self.config, 'trading_mode'):
+                from modules.risk_manager import TradingMode
+                if self.config.trading_mode == TradingMode.FUTURES:
+                    min_vol = getattr(self.config, 'FUTURES_MIN_VOLATILITY_24H', 0.02)
+                    max_vol = getattr(self.config, 'FUTURES_MAX_VOLATILITY_24H', 0.15)
+                    logger.debug(f"Using FUTURES volatility filter: {min_vol*100:.1f}% - {max_vol*100:.1f}%")
+                else:
+                    min_vol = getattr(self.config, 'SPOT_MIN_VOLATILITY_24H', 0.03)
+                    max_vol = getattr(self.config, 'SPOT_MAX_VOLATILITY_24H', 0.08)
+                    logger.debug(f"Using SPOT volatility filter: {min_vol*100:.1f}% - {max_vol*100:.1f}%")
+            else:
+                min_vol = getattr(self.config, 'MIN_VOLATILITY_24H', 0.03)
+                max_vol = getattr(self.config, 'MAX_VOLATILITY_24H', 0.08)
             
             score = 0
-            if self.config.MIN_VOLATILITY_24H <= price_change <= self.config.MAX_VOLATILITY_24H:
+            if min_vol <= price_change <= max_vol:
                 score += 15
             if atr_percent >= 0.5:
                 score += 10
             
-            passed = (self.config.MIN_VOLATILITY_24H <= price_change <= self.config.MAX_VOLATILITY_24H 
-                     and atr_percent >= 0.5)
+            passed = (min_vol <= price_change <= max_vol and atr_percent >= 0.5)
             
             return passed, {
                 'score': score,
