@@ -36,6 +36,7 @@ class RangeStrategies:
         """
         try:
             if len(ohlcv) < 50:
+                logger.debug(f"[{symbol}] Range trading: Insufficient data ({len(ohlcv)} < 50)")
                 return None
             
             prices = np.array([c['close'] for c in ohlcv])
@@ -49,10 +50,16 @@ class RangeStrategies:
             
             # Check for BUY signal
             buy_signal = False
+            buy_reasons = []
             if current_price <= bb_lower[-1] * 1.002 or \
                (current_price < bb_middle[-1] and prices[-2] < current_price):
                 if current_rsi < 40:
                     buy_signal = True
+            else:
+                if current_price > bb_lower[-1] * 1.002:
+                    buy_reasons.append(f"price {current_price:.4f} not at lower BB {bb_lower[-1]:.4f}")
+                if current_rsi >= 40:
+                    buy_reasons.append(f"RSI {current_rsi:.1f} >= 40")
             
             if buy_signal:
                 logger.info(f"Range trading BUY signal for {symbol}")
@@ -72,10 +79,16 @@ class RangeStrategies:
             
             # Check for SELL signal
             sell_signal = False
+            sell_reasons = []
             if current_price >= bb_upper[-1] * 0.998 or \
                (current_price > bb_middle[-1] and prices[-2] > current_price):
                 if current_rsi > 60:
                     sell_signal = True
+            else:
+                if current_price < bb_upper[-1] * 0.998:
+                    sell_reasons.append(f"price {current_price:.4f} not at upper BB {bb_upper[-1]:.4f}")
+                if current_rsi <= 60:
+                    sell_reasons.append(f"RSI {current_rsi:.1f} <= 60")
             
             if sell_signal:
                 logger.info(f"Range trading SELL signal for {symbol}")
@@ -93,10 +106,15 @@ class RangeStrategies:
                     'reason': f'Price at upper BB ({bb_upper[-1]:.4f}), RSI={current_rsi:.1f}'
                 }
             
+            # Log rejection reasons if no signal
+            all_reasons = buy_reasons + sell_reasons
+            if all_reasons:
+                logger.debug(f"[{symbol}] Range trading rejected: {', '.join(all_reasons)}")
+            
             return None
             
         except Exception as e:
-            logger.error(f"Error in range trading strategy: {e}")
+            logger.error(f"Error in range trading strategy for {symbol}: {e}")
             return None
     
     def check_mean_reversion_strategy(self, symbol: str, ohlcv: List[Dict]) -> Optional[Dict]:
@@ -113,6 +131,7 @@ class RangeStrategies:
         """
         try:
             if len(ohlcv) < 100:
+                logger.debug(f"[{symbol}] Mean reversion: Insufficient data ({len(ohlcv)} < 100)")
                 return None
             
             prices = np.array([c['close'] for c in ohlcv])
@@ -132,50 +151,63 @@ class RangeStrategies:
             current_price = prices[-1]
             
             # Check for BUY signal
-            if current_z < -1.5:
-                if current_rsi < 35 or current_stoch < 25:
-                    logger.info(f"Mean reversion BUY signal for {symbol}")
-                    position_size = self._calculate_position_size(symbol, current_price)
-                    
-                    # Calculate mean price for stop loss
-                    mean_price = np.mean(prices[-50:])
-                    
-                    return {
-                        'action': 'BUY',
-                        'symbol': symbol,
-                        'entry_price': current_price,
-                        'position_size': position_size,
-                        'stop_loss': mean_price * (1 - 0.015),  # 1.5% below mean
-                        'take_profit_1': current_price + self.config.TAKE_PROFIT_1_USDT,
-                        'take_profit_2': current_price + self.config.TAKE_PROFIT_2_USDT,
-                        'strategy': 'mean_reversion',
-                        'reason': f'Z-Score={current_z:.2f}, oversold conditions'
-                    }
+            buy_conditions_met = current_z < -1.5 and (current_rsi < 35 or current_stoch < 25)
+            if buy_conditions_met:
+                logger.info(f"Mean reversion BUY signal for {symbol}")
+                position_size = self._calculate_position_size(symbol, current_price)
+                
+                # Calculate mean price for stop loss
+                mean_price = np.mean(prices[-50:])
+                
+                return {
+                    'action': 'BUY',
+                    'symbol': symbol,
+                    'entry_price': current_price,
+                    'position_size': position_size,
+                    'stop_loss': mean_price * (1 - 0.015),  # 1.5% below mean
+                    'take_profit_1': current_price + self.config.TAKE_PROFIT_1_USDT,
+                    'take_profit_2': current_price + self.config.TAKE_PROFIT_2_USDT,
+                    'strategy': 'mean_reversion',
+                    'reason': f'Z-Score={current_z:.2f}, oversold conditions'
+                }
             
             # Check for SELL signal
-            if current_z > 1.5:
-                if current_rsi > 65 or current_stoch > 75:
-                    logger.info(f"Mean reversion SELL signal for {symbol}")
-                    position_size = self._calculate_position_size(symbol, current_price)
-                    
-                    mean_price = np.mean(prices[-50:])
-                    
-                    return {
-                        'action': 'SELL',
-                        'symbol': symbol,
-                        'entry_price': current_price,
-                        'position_size': position_size,
-                        'stop_loss': mean_price * (1 + 0.015),  # 1.5% above mean
-                        'take_profit_1': current_price - self.config.TAKE_PROFIT_1_USDT,
-                        'take_profit_2': current_price - self.config.TAKE_PROFIT_2_USDT,
-                        'strategy': 'mean_reversion',
-                        'reason': f'Z-Score={current_z:.2f}, overbought conditions'
-                    }
+            sell_conditions_met = current_z > 1.5 and (current_rsi > 65 or current_stoch > 75)
+            if sell_conditions_met:
+                logger.info(f"Mean reversion SELL signal for {symbol}")
+                position_size = self._calculate_position_size(symbol, current_price)
+                
+                mean_price = np.mean(prices[-50:])
+                
+                return {
+                    'action': 'SELL',
+                    'symbol': symbol,
+                    'entry_price': current_price,
+                    'position_size': position_size,
+                    'stop_loss': mean_price * (1 + 0.015),  # 1.5% above mean
+                    'take_profit_1': current_price - self.config.TAKE_PROFIT_1_USDT,
+                    'take_profit_2': current_price - self.config.TAKE_PROFIT_2_USDT,
+                    'strategy': 'mean_reversion',
+                    'reason': f'Z-Score={current_z:.2f}, overbought conditions'
+                }
+            
+            # Log rejection reasons if no signal
+            reasons = []
+            if current_z >= -1.5 and current_z <= 1.5:
+                reasons.append(f"Z-Score {current_z:.2f} in neutral range [-1.5, 1.5]")
+            elif current_z < -1.5:
+                if current_rsi >= 35 and current_stoch >= 25:
+                    reasons.append(f"oversold but RSI={current_rsi:.1f}>=35 and Stoch={current_stoch:.1f}>=25")
+            elif current_z > 1.5:
+                if current_rsi <= 65 and current_stoch <= 75:
+                    reasons.append(f"overbought but RSI={current_rsi:.1f}<=65 and Stoch={current_stoch:.1f}<=75")
+            if reasons:
+                logger.debug(f"[{symbol}] Mean reversion rejected: {', '.join(reasons)}")
             
             return None
             
         except Exception as e:
-            logger.error(f"Error in mean reversion strategy: {e}")
+            logger.error(f"Error in mean reversion strategy for {symbol}: {e}")
             return None
     
     def check_pattern_scalping_strategy(self, symbol: str, ohlcv: List[Dict]) -> Optional[Dict]:
@@ -192,6 +224,7 @@ class RangeStrategies:
         """
         try:
             if len(ohlcv) < 30:
+                logger.debug(f"[{symbol}] Pattern scalp: Insufficient data ({len(ohlcv)} < 30)")
                 return None
             
             prices = np.array([c['close'] for c in ohlcv])
@@ -206,45 +239,60 @@ class RangeStrategies:
             volume_increasing = current_volume > avg_volume * 1.3
             
             # Check for bullish patterns
-            if self._detect_bullish_pattern(opens, highs, lows, prices):
-                if volume_increasing:
-                    logger.info(f"Pattern scalping BUY signal for {symbol}")
-                    position_size = self._calculate_position_size(symbol, current_price)
-                    
-                    return {
-                        'action': 'BUY',
-                        'symbol': symbol,
-                        'entry_price': current_price,
-                        'position_size': position_size,
-                        'stop_loss': current_price * (1 - 0.01),  # 1% below entry
-                        'take_profit_1': current_price + self.config.TAKE_PROFIT_1_USDT,
-                        'take_profit_2': current_price + self.config.TAKE_PROFIT_2_USDT,
-                        'strategy': 'pattern_scalp',
-                        'reason': 'Bullish reversal pattern detected'
-                    }
+            bullish_pattern = self._detect_bullish_pattern(opens, highs, lows, prices)
+            bearish_pattern = self._detect_bearish_pattern(opens, highs, lows, prices)
+            
+            if bullish_pattern and volume_increasing:
+                logger.info(f"Pattern scalping BUY signal for {symbol}")
+                position_size = self._calculate_position_size(symbol, current_price)
+                
+                return {
+                    'action': 'BUY',
+                    'symbol': symbol,
+                    'entry_price': current_price,
+                    'position_size': position_size,
+                    'stop_loss': current_price * (1 - 0.01),  # 1% below entry
+                    'take_profit_1': current_price + self.config.TAKE_PROFIT_1_USDT,
+                    'take_profit_2': current_price + self.config.TAKE_PROFIT_2_USDT,
+                    'strategy': 'pattern_scalp',
+                    'reason': 'Bullish reversal pattern detected'
+                }
             
             # Check for bearish patterns
-            if self._detect_bearish_pattern(opens, highs, lows, prices):
-                if volume_increasing:
-                    logger.info(f"Pattern scalping SELL signal for {symbol}")
-                    position_size = self._calculate_position_size(symbol, current_price)
-                    
-                    return {
-                        'action': 'SELL',
-                        'symbol': symbol,
-                        'entry_price': current_price,
-                        'position_size': position_size,
-                        'stop_loss': current_price * (1 + 0.01),  # 1% above entry
-                        'take_profit_1': current_price - self.config.TAKE_PROFIT_1_USDT,
-                        'take_profit_2': current_price - self.config.TAKE_PROFIT_2_USDT,
-                        'strategy': 'pattern_scalp',
-                        'reason': 'Bearish reversal pattern detected'
-                    }
+            if bearish_pattern and volume_increasing:
+                logger.info(f"Pattern scalping SELL signal for {symbol}")
+                position_size = self._calculate_position_size(symbol, current_price)
+                
+                return {
+                    'action': 'SELL',
+                    'symbol': symbol,
+                    'entry_price': current_price,
+                    'position_size': position_size,
+                    'stop_loss': current_price * (1 + 0.01),  # 1% above entry
+                    'take_profit_1': current_price - self.config.TAKE_PROFIT_1_USDT,
+                    'take_profit_2': current_price - self.config.TAKE_PROFIT_2_USDT,
+                    'strategy': 'pattern_scalp',
+                    'reason': 'Bearish reversal pattern detected'
+                }
+            
+            # Log rejection reasons if no signal
+            reasons = []
+            if not volume_increasing:
+                vol_ratio = current_volume / avg_volume if avg_volume > 0 else 0
+                reasons.append(f"volume ratio {vol_ratio:.2f}x < 1.3x")
+            if not bullish_pattern and not bearish_pattern:
+                reasons.append("no reversal pattern detected")
+            elif bullish_pattern and not volume_increasing:
+                reasons.append("bullish pattern but low volume")
+            elif bearish_pattern and not volume_increasing:
+                reasons.append("bearish pattern but low volume")
+            if reasons:
+                logger.debug(f"[{symbol}] Pattern scalp rejected: {', '.join(reasons)}")
             
             return None
             
         except Exception as e:
-            logger.error(f"Error in pattern scalping strategy: {e}")
+            logger.error(f"Error in pattern scalping strategy for {symbol}: {e}")
             return None
     
     def manage_position(self, position: Dict, current_price: float, direction: str) -> Dict:

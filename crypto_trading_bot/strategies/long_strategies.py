@@ -34,6 +34,7 @@ class LongStrategies:
         """
         try:
             if len(ohlcv) < 50:
+                logger.debug(f"[{symbol}] Breakout: Insufficient data ({len(ohlcv)} < 50)")
                 return None
             
             prices = np.array([c['close'] for c in ohlcv])
@@ -58,6 +59,20 @@ class LongStrategies:
             trend_confirmed = ema9[-1] > ema21[-1]
             rsi_ok = rsi[-1] <= 70
             
+            # Log rejection reasons if any condition fails
+            if not (breakout and volume_confirmed and trend_confirmed and rsi_ok):
+                reasons = []
+                if not breakout:
+                    reasons.append(f"price {current_price:.4f} <= resistance {resistance:.4f}")
+                if not volume_confirmed:
+                    vol_ratio = current_volume / avg_volume if avg_volume > 0 else 0
+                    reasons.append(f"volume ratio {vol_ratio:.2f}x < 1.5x")
+                if not trend_confirmed:
+                    reasons.append(f"EMA9 {ema9[-1]:.4f} <= EMA21 {ema21[-1]:.4f}")
+                if not rsi_ok:
+                    reasons.append(f"RSI {rsi[-1]:.1f} > 70 (overbought)")
+                logger.debug(f"[{symbol}] Breakout rejected: {', '.join(reasons)}")
+            
             if breakout and volume_confirmed and trend_confirmed and rsi_ok:
                 logger.info(f"Breakout strategy triggered for {symbol}")
                 
@@ -79,7 +94,7 @@ class LongStrategies:
             return None
             
         except Exception as e:
-            logger.error(f"Error in breakout strategy: {e}")
+            logger.error(f"Error in breakout strategy for {symbol}: {e}")
             return None
     
     def check_support_bounce_strategy(self, symbol: str, ohlcv: List[Dict]) -> Optional[Dict]:
@@ -94,6 +109,7 @@ class LongStrategies:
         """
         try:
             if len(ohlcv) < 50:
+                logger.debug(f"[{symbol}] Support bounce: Insufficient data ({len(ohlcv)} < 50)")
                 return None
             
             prices = np.array([c['close'] for c in ohlcv])
@@ -138,6 +154,22 @@ class LongStrategies:
             is_bullish = current_close > current_open
             has_lower_shadow = (current_open - current_low) > (current_close - current_open) * 0.5
             
+            # Log rejection reasons if any condition fails
+            if not (bounce and rsi_ok and volume_confirmed and is_bullish and has_lower_shadow):
+                reasons = []
+                if not bounce:
+                    reasons.append(f"no bounce (price {current_price:.4f}, prev_low {prev_low:.4f})")
+                if not rsi_ok:
+                    reasons.append(f"RSI {rsi[-1]:.1f} not in 25-35 range")
+                if not volume_confirmed:
+                    vol_ratio = current_volume / avg_volume if avg_volume > 0 else 0
+                    reasons.append(f"volume ratio {vol_ratio:.2f}x < 1.3x")
+                if not is_bullish:
+                    reasons.append("bearish candle")
+                if not has_lower_shadow:
+                    reasons.append("no lower shadow")
+                logger.debug(f"[{symbol}] Support bounce rejected: {', '.join(reasons)}")
+            
             if bounce and rsi_ok and volume_confirmed and is_bullish and has_lower_shadow:
                 logger.info(f"Support bounce strategy triggered for {symbol}")
                 
@@ -173,6 +205,7 @@ class LongStrategies:
         """
         try:
             if len(ohlcv) < 100:
+                logger.debug(f"[{symbol}] Volatility scalp: Insufficient data ({len(ohlcv)} < 100)")
                 return None
             
             prices = np.array([c['close'] for c in ohlcv])
@@ -201,6 +234,20 @@ class LongStrategies:
             # Check previous 3 candles were red
             prev_3_red = all(opens[i] > prices[i] for i in range(-4, -1))
             
+            # Log rejection reasons if any condition fails
+            if not (at_lower_band and bands_compressed and volume_increasing and prev_3_red):
+                reasons = []
+                if not at_lower_band:
+                    reasons.append(f"price {current_price:.4f} not at lower BB {bb_lower[-1]:.4f}")
+                if not bands_compressed:
+                    reasons.append(f"BB width {current_bb_width:.4f} >= avg {avg_bb_width:.4f}")
+                if not volume_increasing:
+                    vol_ratio = current_volume / avg_volume if avg_volume > 0 else 0
+                    reasons.append(f"volume ratio {vol_ratio:.2f}x < 1.2x")
+                if not prev_3_red:
+                    reasons.append("previous 3 candles not all red")
+                logger.debug(f"[{symbol}] Volatility scalp rejected: {', '.join(reasons)}")
+            
             if at_lower_band and bands_compressed and volume_increasing and prev_3_red:
                 logger.info(f"Volatility scalping strategy triggered for {symbol}")
                 
@@ -221,7 +268,7 @@ class LongStrategies:
             return None
             
         except Exception as e:
-            logger.error(f"Error in volatility scalping strategy: {e}")
+            logger.error(f"Error in volatility scalping strategy for {symbol}: {e}")
             return None
     
     def manage_position(self, position: Dict, current_price: float) -> Dict:
