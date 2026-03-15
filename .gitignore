@@ -1,1 +1,16 @@
-Nothing should be ignored based on the provided file changes. The only modified file is a Python source file (`crypto_trading_bot/main.py`), which should not be ignored. There are no build artifacts, dependencies, temporary files, or other items that need to be added to the .gitignore file.
+```
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+*.env.*
+```
