@@ -58,7 +58,8 @@ class CryptoTradingBot:
             self.client, 
             self.config,
             get_ohlcv_func=self._get_ohlcv_data,
-            get_ticker_func=self._get_ticker_price
+            get_ticker_func=self._get_ticker_price,
+            get_orderbook_func=self._get_orderbook_data
         )
         self.long_trader = LongStrategies(self.client, self.config)
         self.short_trader = ShortStrategies(self.client, self.config)
@@ -241,14 +242,19 @@ class CryptoTradingBot:
                         }
                     }
             
-            def get_orderbook(self, category="linear", symbol=None, depth=5):
+            def get_orderbook(self, category="linear", symbol=None, limit=5):
                 # Support both old and new signature (with/without category)
                 base_price = 50000 if symbol and "BTC" in str(symbol) else 3000 if symbol and "ETH" in str(symbol) else 300
+                # Return in pybit v5 format with 'result' -> 'list' containing 'b' and 'a'
                 return {
                     "retCode": 0,
                     "retMsg": "OK",
-                    "bids": [[base_price - i * 0.5, 10] for i in range(depth)],
-                    "asks": [[base_price + i * 0.5, 10] for i in range(depth)]
+                    "result": {
+                        "s": symbol,
+                        "b": [[str(base_price - i * 0.5), str(10)] for i in range(limit)],
+                        "a": [[str(base_price + i * 0.5), str(10)] for i in range(limit)],
+                        "ts": int(time.time() * 1000)
+                    }
                 }
             
             def get_balance(self):
@@ -399,6 +405,69 @@ class CryptoTradingBot:
             error_msg = str(e).replace('→', '->').replace('\u2192', '->')
             logger.error(f"Error getting ticker for {symbol}: {error_msg}")
             return {'lastPrice': 0.0, 'bid1Price': 0.0, 'ask1Price': 0.0, 'volume24h': 0.0}
+
+    def _get_orderbook_data(self, symbol, depth=5):
+        """Get orderbook data from client (wrapper for pybit v5 compatibility)"""
+        try:
+            # Determine category based on trading mode
+            category = "spot" if self.risk_manager.trading_mode.value == "SPOT" else "linear"
+            
+            # Pybit v5+ uses get_orderbook with category parameter
+            response = self.client.get_orderbook(
+                category=category,
+                symbol=symbol,
+                limit=depth
+            )
+            
+            # Extract orderbook data from response
+            if isinstance(response, dict) and "retCode" in response:
+                if response["retCode"] != 0:
+                    logger.error(f"Orderbook API error for {symbol}: {response.get('retMsg', 'Unknown error')}")
+                    return {'bids': [], 'asks': []}
+                
+                # Pybit v5 returns data in 'result' (can be dict with 'b'/'a' or list)
+                result = response.get("result", {})
+                
+                # Handle both formats: direct result with 'b'/'a' or list format
+                if isinstance(result, dict) and 'b' in result:
+                    # Direct format: result contains 'b' and 'a' directly
+                    bids = result.get("b", [])
+                    asks = result.get("a", [])
+                else:
+                    # List format: result['list'][0] contains 'b' and 'a'
+                    orderbook_list = result.get("list", []) if isinstance(result, dict) else response.get("list", [])
+                    
+                    if not orderbook_list or len(orderbook_list) == 0:
+                        logger.warning(f"No orderbook data returned for {symbol} from Bybit API")
+                        return {'bids': [], 'asks': []}
+                    
+                    orderbook_data = orderbook_list[0]
+                    bids = orderbook_data.get("b", [])
+                    asks = orderbook_data.get("a", [])
+                
+                # Convert to expected format [[price, size], ...]
+                formatted_bids = [[float(b[0]), float(b[1])] for b in bids]
+                formatted_asks = [[float(a[0]), float(a[1])] for a in asks]
+                
+                return {
+                    'bids': formatted_bids,
+                    'asks': formatted_asks
+                }
+            elif isinstance(response, dict) and 'bids' in response:
+                # Mock client or old API format
+                return {
+                    'bids': response.get('bids', []),
+                    'asks': response.get('asks', [])
+                }
+            else:
+                logger.warning(f"Unexpected orderbook response format for {symbol}")
+                return {'bids': [], 'asks': []}
+                
+        except Exception as e:
+            # Convert exception to string safely, avoiding special characters
+            error_msg = str(e).replace('→', '->').replace('\\u2192', '->')
+            logger.error(f"Error getting orderbook for {symbol}: {error_msg}")
+            return {'bids': [], 'asks': []}
 
     def _fetch_symbols_from_bybit_with_fallback(self):
         """Fetch symbols from Bybit with fallback to hardcoded list if TESTNET has no volume data"""
