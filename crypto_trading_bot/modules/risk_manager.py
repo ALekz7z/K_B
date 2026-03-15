@@ -283,8 +283,8 @@ class RiskManager:
     Risk Management system with automatic mode switching
     
     Automatically switches between SPOT and FUTURES trading based on account balance:
-    - Balance < 500 USDT → SPOT mode (safer, no leverage)
-    - Balance >= 500 USDT → FUTURES mode (with leverage, all strategies)
+    - Balance < 500 USDT -> SPOT mode (safer, no leverage)
+    - Balance >= 500 USDT -> FUTURES mode (with leverage, all strategies)
     """
     
     def __init__(self):
