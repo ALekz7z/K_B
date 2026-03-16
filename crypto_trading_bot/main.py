@@ -371,9 +371,14 @@ class CryptoTradingBot:
             
             logger.debug(f"Requesting kline data for {symbol}: category={category}, interval={bybit_interval}, limit={limit}")
             
-            # For LINEAR (futures) category, always use string interval format
-            # For SPOT category, use numeric format first, then try string if needed
-            if category == "linear":
+            # For SPOT category, use string interval format (more reliable)
+            # For LINEAR (futures) category, use numeric format
+            if category == "spot":
+                string_interval = self._get_string_interval(bybit_interval)
+                if string_interval and string_interval != bybit_interval:
+                    logger.debug(f"Using string interval format for spot: {string_interval}")
+                    bybit_interval = string_interval
+            elif category == "linear":
                 string_interval = self._get_string_interval(bybit_interval)
                 if string_interval and string_interval != bybit_interval:
                     logger.debug(f"Using string interval format for linear: {string_interval}")

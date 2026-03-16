@@ -1,1 +1,1 @@
-Nothing should be ignored in this case, as only a source code file (`crypto_trading_bot/main.py`) was modified and there are no build artifacts, dependencies, or temporary files in the changes.
+Nothing should be ignored based on the provided file changes. The modification of 'crypto_trading_bot/main.py' represents a source code change that should be tracked in version control, and there are no build artifacts, dependencies, or temporary files listed that would warrant adding ignore rules.
