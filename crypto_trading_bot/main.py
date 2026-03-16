@@ -770,12 +770,15 @@ class CryptoTradingBot:
     def _update_balance(self):
         """Update balance from exchange and check for mode switch"""
         try:
-            # In real implementation, fetch from Bybit API
-            # balance_response = self.client.get_wallet_balance()
-            # current_balance = float(balance_response['balance'])
+            # Fetch real balance from Bybit API
+            current_balance = self._get_real_balance()
             
-            # For now, use mock balance with simulation
-            current_balance = self.risk_manager.current_balance  # Would be fetched from API
+            # Ensure balance is a float
+            if isinstance(current_balance, dict):
+                # Handle case where balance might be returned as dict
+                current_balance = float(current_balance.get('balance', current_balance.get('walletBalance', 100.0)))
+            else:
+                current_balance = float(current_balance)
             
             self.risk_manager.update_balance(current_balance)
             
