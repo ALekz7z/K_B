@@ -153,7 +153,14 @@ class ExchangeClient:
                 return result
             except ccxt.DDoSProtection as e:
                 self.logger.warning(f"DDoS protection/rate limit (attempt {attempt + 1}): {e}")
-                retry_after = int(e.headers.get('Retry-After', 2 ** attempt))
+                retry_after = 2 ** attempt
+                if e.args and isinstance(e.args[0], str):
+                    import json
+                    try:
+                        data = json.loads(e.args[0])
+                        retry_after = int(data.get('headers', {}).get('Retry-After', retry_after))
+                    except (json.JSONDecodeError, ValueError, TypeError):
+                        pass
                 await asyncio.sleep(retry_after)
             except ccxt.ExchangeNotAvailable as e:
                 self.logger.warning(f"Exchange not available (attempt {attempt + 1}): {e}")
@@ -179,6 +186,10 @@ class ExchangeClient:
         if self.paper_trading:
             # Simulated balance for paper trading
             return {'USDT': 100.0}
+        
+        if self.exchange is None:
+            self.logger.error("Exchange not connected")
+            return {}
         
         try:
             balance = await self._retry_request(self.exchange.fetch_balance)
@@ -208,6 +219,10 @@ class ExchangeClient:
             if self.exchange is None:
                 await self.connect()
             
+            if self.exchange is None:
+                self.logger.error("Exchange not connected")
+                return []
+            
             markets = await self._retry_request(self.exchange.load_markets)
             return markets
         except Exception as e:
@@ -221,6 +236,10 @@ class ExchangeClient:
         Returns:
             Dict: Dictionary of tickers.
         """
+        if self.exchange is None:
+            self.logger.error("Exchange not connected")
+            return {}
+        
         try:
             tickers = await self._retry_request(self.exchange.fetch_tickers)
             return tickers
@@ -239,6 +258,10 @@ class ExchangeClient:
         Returns:
             Dict: Order book with bids and asks.
         """
+        if self.exchange is None:
+            self.logger.error("Exchange not connected")
+            return {'bids': [], 'asks': []}
+        
         try:
             orderbook = await self._retry_request(
                 self.exchange.fetch_order_book,
@@ -262,6 +285,10 @@ class ExchangeClient:
         Returns:
             List: OHLCV data.
         """
+        if self.exchange is None:
+            self.logger.error("Exchange not connected")
+            return []
+        
         try:
             ohlcv = await self._retry_request(
                 self.exchange.fetch_ohlcv,
@@ -310,6 +337,10 @@ class ExchangeClient:
                 'remaining': amount,
                 'cost': amount * price
             }
+        
+        if self.exchange is None:
+            self.logger.error("Exchange not connected")
+            return None
         
         try:
             order = await self._retry_request(
@@ -362,6 +393,10 @@ class ExchangeClient:
                 'remaining': 0.0
             }
         
+        if self.exchange is None:
+            self.logger.error("Exchange not connected")
+            return None
+        
         try:
             order = await self._retry_request(
                 self.exchange.create_market_order,
@@ -389,6 +424,10 @@ class ExchangeClient:
         if self.paper_trading:
             self.logger.info(f"[PAPER] Cancelled order: {order_id}")
             return True
+        
+        if self.exchange is None:
+            self.logger.error("Exchange not connected")
+            return False
         
         try:
             await self._retry_request(
@@ -423,6 +462,10 @@ class ExchangeClient:
                 'remaining': 0.0
             }
         
+        if self.exchange is None:
+            self.logger.error("Exchange not connected")
+            return None
+        
         try:
             order = await self._retry_request(
                 self.exchange.fetch_order,
@@ -445,6 +488,10 @@ class ExchangeClient:
             List[Dict]: List of open orders.
         """
         if self.paper_trading:
+            return []
+        
+        if self.exchange is None:
+            self.logger.error("Exchange not connected")
             return []
         
         try:
@@ -473,6 +520,10 @@ class ExchangeClient:
         if self.paper_trading:
             self.logger.info(f"[PAPER] Cancelled all orders for {symbol}")
             return True
+        
+        if self.exchange is None:
+            self.logger.error("Exchange not connected")
+            return False
         
         try:
             await self._retry_request(
