@@ -90,30 +90,33 @@ class TradingBot:
                 self.logger.info(f"=== Trading Cycle {cycle_count} ===")
                 
                 # Check connection timeout
-                if not await self.risk_manager.check_connection_timeout(
-                    self.exchange.get_last_api_call_time()
-                ):
-                    self.logger.error("Connection timeout detected. Stopping bot.")
-                    break
+                if self.risk_manager and self.exchange:
+                    if not await self.risk_manager.check_connection_timeout(
+                        self.exchange.get_last_api_call_time()
+                    ):
+                        self.logger.error("Connection timeout detected. Stopping bot.")
+                        break
                 
                 # Check daily loss limit before each cycle
-                if not self.risk_manager.check_daily_loss_limit():
+                if self.risk_manager and not self.risk_manager.check_daily_loss_limit():
                     self.logger.info("Daily loss limit reached. Stopping trading.")
                     break
                 
                 # Check minimum balance
-                balance = await self.exchange.get_usdt_balance()
-                if balance < 5.0:
-                    self.logger.critical(
-                        f"Balance too low (${balance:.2f}). Minimum $5 required. Stopping."
-                    )
-                    break
+                if self.exchange:
+                    balance = await self.exchange.get_usdt_balance()
+                    if balance < 5.0:
+                        self.logger.critical(
+                            f"Balance too low (${balance:.2f}). Minimum $5 required. Stopping."
+                        )
+                        break
                 
                 # Run strategy cycle
-                await self.strategy.run_strategy_cycle()
+                if self.strategy:
+                    await self.strategy.run_strategy_cycle()
                 
                 # Log statistics periodically
-                if cycle_count % 10 == 0:
+                if cycle_count % 10 == 0 and self.risk_manager:
                     stats = self.risk_manager.get_daily_statistics()
                     self.logger.info(
                         f"Daily Stats - Loss: ${stats['daily_loss']:.2f}/${stats['daily_loss_limit']:.2f}, "
@@ -138,8 +141,12 @@ class TradingBot:
         if self.exchange and not Config.PAPER_TRADING:
             try:
                 # Get all open orders
-                markets = await self.exchange.get_markets()
-                usdt_pairs = [m for m in markets.keys() if '/USDT' in m]
+                markets_data = await self.exchange.get_markets()
+                # markets_data is a dict when returned from ccxt
+                if isinstance(markets_data, dict):
+                    usdt_pairs = [m for m in markets_data.keys() if '/USDT' in m]
+                else:
+                    usdt_pairs = []
                 
                 for symbol in usdt_pairs[:10]:  # Limit to prevent rate issues
                     await self.exchange.cancel_all_orders(symbol)
