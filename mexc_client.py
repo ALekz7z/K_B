@@ -51,10 +51,18 @@ class ExchangeClient:
                         'defaultType': 'spot',
                     }
                 })
-                # Load markets
-                await self.exchange.load_markets()
-                self.logger.info("Connected to MEXC (paper trading mode)")
-                return True
+                # Load markets with retry
+                for attempt in range(3):
+                    try:
+                        await self.exchange.load_markets()
+                        self.last_api_call_time = time.time()
+                        self.logger.info("Connected to MEXC (paper trading mode)")
+                        return True
+                    except ccxt.NetworkError as e:
+                        if attempt == 2:
+                            raise
+                        self.logger.warning(f"Network error loading markets (attempt {attempt + 1}): {e}")
+                        await asyncio.sleep(2 ** attempt)
             
             # Validate credentials
             if not Config.MEXC_API_KEY or not Config.MEXC_SECRET_KEY:
@@ -70,8 +78,16 @@ class ExchangeClient:
                 }
             })
             
-            # Load markets
-            await self.exchange.load_markets()
+            # Load markets with retry
+            for attempt in range(3):
+                try:
+                    await self.exchange.load_markets()
+                    break
+                except ccxt.NetworkError as e:
+                    if attempt == 2:
+                        raise
+                    self.logger.warning(f"Network error loading markets (attempt {attempt + 1}): {e}")
+                    await asyncio.sleep(2 ** attempt)
             
             # Test connection by fetching balance
             await self.get_balance()
@@ -98,6 +114,7 @@ class ExchangeClient:
         try:
             if self.exchange:
                 await self.exchange.close()
+                self.exchange = None
                 self.logger.info("Disconnected from exchange")
         except Exception as e:
             self.logger.error(f"Error during disconnect: {e}")
