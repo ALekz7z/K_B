@@ -63,6 +63,11 @@ class Config:
         Returns:
             bool: True if configuration is valid, False otherwise.
         """
+        # In paper trading mode, API keys are not required
+        if cls.PAPER_TRADING:
+            return True
+        
+        # In live trading mode, API keys are required
         if not cls.MEXC_API_KEY or cls.MEXC_API_KEY == "your_api_key_here":
             return False
         if not cls.MEXC_SECRET_KEY or cls.MEXC_SECRET_KEY == "your_secret_key_here":

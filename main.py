@@ -178,12 +178,19 @@ async def main():
     signal.signal(signal.SIGTERM, signal_handler)
     
     # Run the bot
-    await bot.run()
+    try:
+        await bot.run()
+    finally:
+        # Ensure proper cleanup
+        if bot.exchange:
+            await bot.exchange.disconnect()
 
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nBot stopped by user")
     except Exception as e:
         print(f"Fatal error: {e}")
         sys.exit(1)
